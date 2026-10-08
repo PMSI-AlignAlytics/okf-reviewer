@@ -1,0 +1,73 @@
+// Global keyboard shortcuts — every primary action reachable without a mouse.
+// See docs/ux/keyboard-shortcuts.md.
+
+import { useEffect } from "react";
+import { useApp } from "@/shared/store.tsx";
+
+export function useGlobalKeys() {
+  const { state, actions } = useApp();
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Modal controls own their keys, including nested dialog dismissal.
+      if (e.defaultPrevented
+        || (e.target instanceof Element && e.target.closest('[role="dialog"]'))) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      const k = e.key.toLowerCase();
+
+      if (e.ctrlKey && e.key === "Tab") {
+        // Cycle reader tabs (Ctrl even on mac — Cmd+Tab is the OS app switcher).
+        e.preventDefault();
+        actions.cycleTab(e.shiftKey ? -1 : 1);
+      } else if (mod && k === "t" && state.bundle) {
+        // New tab: opens empty and active; its empty state points at the
+        // sidebar or reader to pick a concept. (Deliberately does NOT
+        // auto-open the launcher — owner feedback.) docs/proposals/multi-view.md
+        e.preventDefault();
+        actions.openInNewTab(null);
+      } else if (mod && k === "w" && state.bundle) {
+        // Close the active tab (the last one never closes; the window's own
+        // close button owns closing the window).
+        e.preventDefault();
+        actions.closeTab();
+      } else if (mod && k === "o") {
+        e.preventDefault();
+        void actions.openFolder();
+      } else if (mod && k === "p") {
+        // Open the Bundle Switcher (when a bundle is open); otherwise jump
+        // straight to the folder picker. preventDefault to suppress print.
+        e.preventDefault();
+        if (state.bundle) actions.setSwitcher(!state.switcherOpen);
+        else void actions.openFolder();
+      } else if (mod && k === "k") {
+        e.preventDefault();
+        actions.focusConceptSearch();
+      } else if (mod && e.key === ",") {
+        e.preventDefault();
+        actions.setSettingsOpen(true);
+      } else if (e.key === "/" && !typing) {
+        // Open the global search launcher (a synonym for Ctrl/Cmd+K). Used to
+        // focus the in-sidebar search, but that was a dead key when the sidebar
+        // was collapsed. See docs/proposals/global-search.md.
+        e.preventDefault();
+        actions.focusConceptSearch();
+      } else if (e.key === "Escape") {
+        actions.setSettingsOpen(false);
+        actions.setSwitcher(false);
+      } else if (e.altKey && e.key === "ArrowLeft") {
+        actions.back();
+      } else if (e.altKey && e.key === "ArrowRight") {
+        actions.forward();
+      } else if (!typing && !mod && k === "l") {
+        actions.togglePanel("log");
+      } else if (!typing && !mod && k === "r") {
+        void actions.rescan();
+      } else if (!typing && !mod && k === "[") {
+        actions.togglePanel("sidebar");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+}

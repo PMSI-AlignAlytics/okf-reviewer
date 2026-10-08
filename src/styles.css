@@ -1,0 +1,717 @@
+/* OKF Reviewer base styles. Color comes from role variables so light/dark and the
+   type palette stay consistent. Components add their own scoped styles.
+
+   The color roles below follow the shape Zed's theme uses, because the problem
+   is the same one: a dense tool UI with many docked surfaces, where "which
+   surface am I on" has to stay legible without a border around everything.
+   Four groups, and a component picks from the group that matches its job:
+
+     surface   --bg-sunken / --bg / --bg-elev / --bg-overlay
+               A fixed depth order. Sunken is the recessed canvas (the graph,
+               inset tracks), --bg the app frame and the tab strip, --bg-elev
+               the docked panes and chrome, --bg-overlay only what floats
+               (dialogs, popovers, menus) so a dialog reads as a layer above
+               the panel it covers instead of the same gray.
+     element   --el-hover / --el-active, and the translucent --ghost-* pair
+               The state fills. Zed splits these the same way: `element.*` for
+               a control that paints its own surface, `ghost_element.*` for one
+               drawn straight onto a pane. The translucent pair composites onto
+               whatever is behind it, so a row hovers correctly on all four
+               surfaces without knowing which one it sits on.
+     border    --border / --border-variant / --border-strong
+               Structural edge, quiet internal divider, emphasized (hover) edge.
+               One border weight for both jobs makes list rules shout.
+     content   --text / --text-dim, --accent*, the status roles, and their
+               translucent -soft tints
+
+   State fills move TOWARD the foreground in both themes: lighter on dark,
+   darker on light. The single most common theming bug in a dark UI is a hover
+   that darkens, which reads as a hole punched in the surface rather than a
+   control lighting up. */
+
+:root {
+  /* Surfaces, recessed → floating. */
+  --bg-sunken: #edeff3;
+  --bg: #f6f7fa;
+  --bg-elev: #ffffff;
+  /* Light separates a floating surface with shadow, not tone — a popover that
+     went lighter than white has nowhere to go. */
+  --bg-overlay: #ffffff;
+  /* The window's own furniture: title bar, status bar, activity bar. It moves
+     AWAY from the content surface — darker on light, lighter on dark — which is
+     the same rule the state fills follow, and the reason this cannot just be
+     --bg: in light the frame color is already the right step away from white,
+     but in dark it is on the wrong side of the panes. Zed draws the same
+     distinction, its title and status bars being a step off its panels. Here
+     the value coincides with --bg in light and sits above --bg-elev in dark. */
+  --bg-chrome: #f6f7fa;
+
+  /* Element state fills. --el-* are opaque, for a control that paints its own
+     surface (.btn, chips, toggles); --ghost-* are translucent, for anything
+     drawn directly on a pane (list rows, icon buttons, tabs, menu items). */
+  --el-hover: #f0f2f6;
+  --el-active: #e7eaf0;
+  --ghost-hover: rgba(17, 24, 39, 0.045);
+  --ghost-active: rgba(17, 24, 39, 0.07);
+
+  --text: #191c22;
+  --text-dim: #596170;
+  /* One dim for every inert control. Opacity rather than a disabled ink,
+     because a disabled button has to take its icon and its border down with
+     its label, and it has to do that on all four surfaces. The six rules this
+     replaced had drifted to 0.45, 0.48, 0.56, 0.58, 0.6, and 0.7, one of them
+     stacked on top of a --text-dim it had already applied. WCAG 1.4.3 exempts
+     inactive controls, which is why this may sit below 4.5:1. */
+  --disabled-opacity: 0.5;
+
+  --border: #d4d9e1;
+  --border-variant: #e5e9ef;
+  --border-strong: #b8c0cc;
+
+  /* Light-theme accent and status colors are darker than their dark-theme
+     counterparts because they have to carry TEXT on a near-white surface, not
+     just fill a shape. Every value below clears 4.5:1 on all four surfaces AND
+     on the state fills stacked on them, and still takes --accent-contrast at
+     4.5 when used as a fill. Those two requirements pull in opposite
+     directions, so check both before changing one — `pnpm check:contrast`
+     re-derives all 90 pairings per theme from these declarations. It is what
+     caught the state-fill cases: the roles were checked against the resting
+     surfaces only, and a hovered row is a surface too. */
+  --accent: #1a56d0;
+  --accent-contrast: #ffffff;
+  /* Hover moves the accent away from the page (darker on light, lighter on
+     dark) so a filled button reacts in the same direction as a ghost one.
+     This replaces a `filter: brightness()`, which desaturates as it lightens
+     and does nothing at all to an already-dark fill. */
+  --accent-hover: #164bb8;
+  --accent-active: #13419e;
+  --error: #b23127;
+  /* --error is a fill too (the danger button, the window close box), so it
+     needs the same hover/active pair as the accent. */
+  --error-hover: #9c2a21;
+  --error-active: #87241c;
+  --warn: #7d5800;
+  --ok: #276b46;
+
+  /* Translucent tints of the same roles: selected rows, callouts, status
+     chips. Alpha rather than a mixed-in surface color so one token works on
+     every surface. */
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --error-soft: color-mix(in srgb, var(--error) 13%, transparent);
+  --warn-soft: color-mix(in srgb, var(--warn) 13%, transparent);
+  --ok-soft: color-mix(in srgb, var(--ok) 13%, transparent);
+
+  /* Text selection. Left to the browser this is a fixed system blue that
+     ignores the theme and turns opaque over dark prose. */
+  --selection: color-mix(in srgb, var(--accent) 22%, transparent);
+
+  /* Elevation: one scale, three steps, each a tight contact shadow under a
+     wider ambient one. --shadow-sm is for a small raised tile (the
+     segmented-control thumb), --shadow for popovers and menus, --shadow-lg
+     only for modals, which float above everything else. */
+  --shadow-sm: 0 1px 2px rgba(16, 22, 34, 0.1);
+  --shadow: 0 4px 12px rgba(16, 22, 34, 0.1), 0 1px 3px rgba(16, 22, 34, 0.08);
+  --shadow-lg: 0 16px 48px rgba(16, 22, 34, 0.18), 0 4px 12px rgba(16, 22, 34, 0.1);
+  --scrim: rgba(16, 22, 34, 0.45);
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  /* Window frame corner radius for the borderless window (Zed-style, slight). */
+  --frame-radius: 10px;
+
+  /* Spacing scale (tokens named by px value; 2/4/6/8/10/12 then 4-step) */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --ui-scale: 1;
+  --app-viewport-width: calc(100vw / var(--ui-scale));
+  --app-viewport-height: calc(100dvh / var(--ui-scale));
+
+  /* Reading measure for prose in the chrome — notices, policies, findings, and
+     the explanatory paragraphs inside docked panels. Distinct from the reader's
+     --reader-measure, which a reader tunes; this one is fixed, because chrome
+     prose is not what anyone came to read. Unbounded, these paragraphs ran to
+     190ch in a widened docked panel. */
+  --measure-prose: 72ch;
+
+  /* Type scale (size + paired line-height) */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 28px;
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-normal: 1.5;
+
+  /* Halo for label text drawn over a canvas (the graph and hierarchy panes),
+     where there is no surface behind the words. Two stacked shadows in the
+     pane's own background give the glyphs an edge against a node or an edge
+     without putting them in a box. */
+  --canvas-text-halo: 0 0 6px var(--bg-sunken), 0 0 3px var(--bg-sunken);
+
+  /* Focus. --focus-ring is the color's own role name (Zed calls it
+     border.focused); components referenced it long before it was defined
+     anywhere, which silently voided nine declarations — an `outline` built on
+     an undefined custom property is invalid at computed-value time and falls
+     back to `medium none`, so those elements drew no focus ring at all.
+     Two offsets, and only two: the outset default, and an inset for a control
+     that runs flush to its container's edge (full-bleed list rows, menu items,
+     tab buttons, the window caption buttons), where an outset ring would be
+     clipped by the container or collide with the neighbouring row. */
+  --focus-w: 2px;
+  --focus-ring: var(--accent);
+  --focus-offset: 1px;
+  --focus-offset-inset: -2px;
+
+  /* Motion. One easing curve for everything: a fast start that settles slowly,
+     which is what makes a panel resize or a menu open read as physical rather
+     than mechanical. `ease` (the CSS default this replaces) is symmetric, so it
+     drifts at the start and stops abruptly. */
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 120ms;
+
+  /* Both families are bundled (see main.tsx), so the chrome renders the same on
+     every platform's webview; the system stacks stay behind them as the
+     fallback while a variable font loads and for anyone who blocks web fonts.
+     `font-feature-settings` picks Inter's single-storey g and l and its curved
+     r, which read quieter at the 12px this UI mostly runs at. */
+  --mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
+  --ui: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  --ui-features: "cv05" 1, "cv11" 1, "ss03" 1;
+  color-scheme: light;
+}
+
+/* Dark keeps the app's near-black identity — the surfaces sit around 7–16%
+   lightness rather than Zed's 18–26% — but spaces the four steps evenly enough
+   that a pane edge is visible without leaning on --border for every seam. */
+:root[data-theme="dark"] {
+  --bg-sunken: #0e1116;
+  --bg: #15181e;
+  --bg-elev: #1b1f26;
+  --bg-overlay: #22262e;
+  --bg-chrome: #21252c;
+
+  --el-hover: #242933;
+  --el-active: #2a303a;
+  --ghost-hover: rgba(255, 255, 255, 0.05);
+  --ghost-active: rgba(255, 255, 255, 0.08);
+
+  --text: #e6e9ee;
+  --text-dim: #9ea7b3;
+
+  --border: #2b313b;
+  --border-variant: #21262e;
+  --border-strong: #3b434f;
+
+  --accent: #74a0ff;
+  /* Dark ink on the bright fill: white on #5b8cff is 3.2:1, so the label of a
+     primary button would fail its own threshold. See design-system color.md. */
+  --accent-contrast: #0e1116;
+  --accent-hover: #92b4ff;
+  --accent-active: #5e8df5;
+  --error: #ff7f72;
+  --error-hover: #ff988d;
+  --error-active: #f26a5c;
+  --warn: #e0b341;
+  --ok: #5ed39a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.62), 0 6px 16px rgba(0, 0, 0, 0.42);
+  --scrim: rgba(0, 0, 0, 0.62);
+  color-scheme: dark;
+}
+
+:root[data-reduce-motion="true"] * {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+* { box-sizing: border-box; }
+
+/* Text selection and the native controls the webview still draws itself
+   (checkbox ticks, the caret, spinner arrows) default to a platform blue that
+   ignores the theme — three different blues across Windows, WebKitGTK, and
+   WKWebView. Bind them to the accent so a selection in the reader matches the
+   rest of the window. */
+::selection {
+  background: var(--selection);
+}
+:root {
+  accent-color: var(--accent);
+  caret-color: var(--accent);
+}
+
+/* Visually hidden but available to screen readers (e.g. the "opens in browser"
+   cue appended to external links). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Lucide icons — the app's icon set. A lighter stroke than Lucide's default 2
+   (≈1.2px on screen at these sizes) matches the hand-drawn chrome SVGs, and
+   flex:none + block keep them from stretching or sitting on the text baseline.
+   Size is set per use via the component's `size` prop. */
+.lucide {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  stroke-width: 1.75;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  /* Block touchscreen pinch-zoom and double-tap zoom (page-zoom isn't a native
+     desktop behavior); pan-x/pan-y still allows scrolling. Trackpad/gesture
+     pinch is handled in native.ts. */
+  touch-action: pan-x pan-y;
+}
+
+/* The document itself must never scroll — the app is a fixed shell whose panes
+   scroll internally. Without this, any sub-pixel overflow (WebKitGTK computes
+   one under fractional display scaling) makes the document a scroll container:
+   wheel-scrolling past a pane's end then chains to it and shifts the whole app
+   chrome out of the window, and scrollIntoView (outline jumps, heading
+   permalinks) scrolls it programmatically in WebKit and leaves it stuck there.
+   `clip` (not `hidden`) removes the scroll container entirely, so neither user
+   input nor programmatic scrolling can ever move it; the `hidden` line is the
+   fallback for engines without clip. */
+html, body {
+  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
+}
+
+body {
+  container-type: inline-size;
+  container-name: app-viewport;
+  /* Floating controls measure this containing block's magnification instead
+     of treating scaled viewport coordinates as unscaled CSS pixels. */
+  transform: translate(0);
+  font-family: var(--ui);
+  /* Transparent so the borderless window's rounded corners cut out; the opaque
+     surface is painted by .app. */
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-optical-sizing: auto;
+  font-feature-settings: var(--ui-features);
+  -webkit-font-smoothing: antialiased;
+}
+/* Native feel ------------------------------------------------------------- */
+/* Chrome (toolbar, sidebar, badges, panels) is not selectable text — dragging
+   across it should select nothing, like a native app. We opt selectable
+   surfaces back IN below. Web page-zoom and the default context menu are
+   suppressed in JS (src/native.ts). See docs/proposals/native-feel.md. */
+body,
+.app {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Opt real content back into selection/copy: the reader body, code blocks, and
+   any explicitly selectable value (e.g. the concept id). */
+.reader,
+.reader .body,
+.reader code,
+.reader pre,
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Theme-token scrollbars on scrolling surfaces, with a stable gutter so a
+   scrollbar appearing doesn't shift the layout. Firefox/standard properties
+   first, then a WebKit fallback tied to the same tokens. Covers every
+   overflow:auto surface (panes/panels, dialogs, popovers, code blocks) so
+   none of them fall back to the unstyled browser scrollbar. */
+.pane,
+.panel,
+.ui-dialog,
+.example-code,
+.palette-list,
+.switcher-scroll,
+.graph-panel-body {
+  scrollbar-width: thin;
+  /* --border-strong, not --border: a thumb at structural-border weight is
+     invisible against a dark pane, which is where a scrollbar matters most. */
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-gutter: stable;
+}
+.pane::-webkit-scrollbar,
+.panel::-webkit-scrollbar,
+.ui-dialog::-webkit-scrollbar,
+.example-code::-webkit-scrollbar,
+.palette-list::-webkit-scrollbar,
+.switcher-scroll::-webkit-scrollbar,
+.graph-panel-body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.pane::-webkit-scrollbar-track,
+.panel::-webkit-scrollbar-track,
+.ui-dialog::-webkit-scrollbar-track,
+.example-code::-webkit-scrollbar-track,
+.palette-list::-webkit-scrollbar-track,
+.switcher-scroll::-webkit-scrollbar-track,
+.graph-panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pane::-webkit-scrollbar-thumb,
+.panel::-webkit-scrollbar-thumb,
+.ui-dialog::-webkit-scrollbar-thumb,
+.example-code::-webkit-scrollbar-thumb,
+.palette-list::-webkit-scrollbar-thumb,
+.switcher-scroll::-webkit-scrollbar-thumb,
+.graph-panel-body::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius);
+  /* Inset the thumb so it reads thin against the track. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.pane::-webkit-scrollbar-thumb:hover,
+.panel::-webkit-scrollbar-thumb:hover,
+.ui-dialog::-webkit-scrollbar-thumb:hover,
+.example-code::-webkit-scrollbar-thumb:hover,
+.palette-list::-webkit-scrollbar-thumb:hover,
+.switcher-scroll::-webkit-scrollbar-thumb:hover,
+.graph-panel-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+  background-clip: padding-box;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: var(--app-viewport-height);
+  /* The opaque app surface; rounded so the borderless window has soft corners
+     (hidden and clip both cut children to the radius). `clip` — like the
+     document root above — removes the scroll container entirely, so a
+     programmatic scroll (e.g. a scrollIntoView aligning a sidebar row or an
+     outline jump, which scrolls every scrollable ancestor) can never shift
+     the app chrome out of the window; `hidden` is the older-engine fallback.
+     Squared off when maximized. */
+  overflow: hidden;
+  overflow: clip;
+  background: var(--bg);
+  border-radius: var(--frame-radius);
+}
+.app[data-maximized="true"] {
+  border-radius: 0;
+}
+
+/* The body below the title bar: the persistent Activity Bar beside the content
+   (workspace or empty state). The content flexes to fill the rest. */
+.app-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.app-main > .workspace,
+.app-main > .empty {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Top bar layout lives in TopBar.css; .btn and .badge live in chrome.css — this
+   file used to carry a second, drifting copy of the button rules. */
+
+/* One focus ring, declared once. `:where()` contributes zero specificity, so a
+   component that needs the inset offset, a different treatment, or none at all
+   still overrides it with a plain class selector — but nothing has to restate
+   the ring just to have one. This replaced 86 hand-copied declarations across
+   46 files that had drifted into four different offsets. */
+:where(a, button, input, select, textarea, summary, li, [tabindex], [role="button"],
+  [role="tab"], [role="option"], [role="treeitem"], [role="menuitem"]):focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Workspace: reader-first adaptive layout. The grid template is computed in
+   App.tsx per layout mode from these default tokens + persisted pane sizes.
+   See docs/proposals/reader-first-layout.md. */
+.workspace {
+  /* Defaults consumed by the computed grid template. The reader defaults to a
+     co-equal (>1fr) weight so a fresh split favors content, not a fixed 360px;
+     its measure cap (Reader.css) keeps wide prose readable. */
+  --sidebar-default: 280px;
+  --reader-default: 1.1fr;
+  --graph-min: 280px;
+  --divider-w: 6px;
+  display: grid;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Transition the column tracks on mode change; zeroed under reduce-motion by
+     the global :root[data-reduce-motion] rule. */
+  transition: grid-template-columns var(--dur) var(--ease);
+}
+.workspace[data-layout="quizzes"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+[hidden] {
+  display: none !important;
+}
+.compact-sidebar-close {
+  display: none;
+}
+:root[data-compact-ui="true"] .workspace[data-layout="review"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+:root[data-compact-ui="true"] .workspace[data-layout="review"] > .sidebar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 15;
+  width: min(280px, calc(100% - var(--space-40)));
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+}
+:root[data-compact-ui="true"] .workspace[data-layout="review"] > .pane-divider {
+  display: none;
+}
+:root[data-compact-ui="true"] .compact-sidebar-close {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+  min-height: 32px;
+  border-radius: 0;
+}
+:root[data-compact-ui="true"] .sidebar > .sb {
+  min-height: 0;
+  flex: 1;
+}
+/* During an active divider drag, track the pointer 1:1 (no easing lag). */
+.workspace.dragging {
+  transition: none;
+}
+.pane { min-height: 0; overflow: auto; }
+.sidebar { border-right: 1px solid var(--border); background: var(--bg-elev); }
+.reader { border-left: 1px solid var(--border); background: var(--bg-elev); container-type: inline-size; }
+.graph { background: var(--bg-sunken); position: relative; }
+
+/* Draggable, keyboard-operable column divider between panes. Sits in its own
+   narrow grid track; a wider invisible hit-area straddles the seam. */
+.pane-divider {
+  position: relative;
+  align-self: stretch;
+  cursor: col-resize;
+  background: var(--border);
+  touch-action: none;
+  z-index: 5;
+}
+/* Widen the pointer/touch target beyond the visible rule. */
+.pane-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0 -4px;
+}
+.pane-divider:hover,
+.pane-divider:focus-visible {
+  background: var(--accent);
+}
+.pane-divider:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+/* Sidebar */
+.sidebar-inner {
+  padding: var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.search {
+  font: inherit;
+  width: 100%;
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Inset field: recessed relative to the pane it sits in, the way Zed's
+     search inputs read against a panel. */
+  background: var(--bg-sunken);
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.search:hover { border-color: var(--border-strong); }
+.concept-list { list-style: none; margin: 0; padding: 0; }
+.concept-list li {
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.concept-list li:hover { background: var(--ghost-hover); }
+.concept-list li.active { background: var(--accent); color: var(--accent-contrast); }
+
+/* Graph placeholder */
+.graph-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  gap: var(--space-4);
+}
+
+/* Reader styling lives in Reader.css (the single source for the reading pane). */
+
+/* Panels (log / validation) — docked on the right. Docked, so --bg-elev and the
+   mid shadow: it belongs to the window frame. Only what floats free of the
+   layout (the palette, dialogs) gets --bg-overlay and --shadow-lg. */
+.panel {
+  position: fixed;
+  top: 49px;
+  right: 0;
+  width: 380px;
+  max-width: 90vw;
+  bottom: 0;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: var(--space-12) var(--space-16);
+  overflow: auto;
+  z-index: 20;
+}
+.panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-10);
+}
+.issues, .panel ul { list-style: none; margin: 0; padding: 0; }
+.issues li {
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border-left: 3px solid var(--border-variant);
+  margin-bottom: var(--space-4);
+}
+.issues li.error { border-left-color: var(--error); background: var(--error-soft); }
+.issues li.warning { border-left-color: var(--warn); background: var(--warn-soft); }
+.issues .lvl { font-size: var(--fs-xs); text-transform: uppercase; color: var(--text-dim); }
+.muted { color: var(--text-dim); }
+.log-entry h4 { margin: var(--space-12) 0 var(--space-4); }
+
+/* Overlays (palette / settings) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 50;
+}
+.palette {
+  margin-top: 12vh;
+  width: 560px;
+  max-width: 92vw;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.palette input {
+  font: inherit;
+  width: 100%;
+  padding: var(--space-16);
+  border: 0;
+  border-bottom: 1px solid var(--border-variant);
+  background: transparent;
+  color: var(--text);
+}
+.palette ul {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-6);
+  max-height: 50vh;
+  overflow: auto;
+}
+.palette li {
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.palette li:hover { background: var(--ghost-hover); }
+.palette small, .concept-list small { color: var(--text-dim); }
+
+.dialog {
+  margin-top: 14vh;
+  width: 420px;
+  max-width: 92vw;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.dialog h2 { margin: 0; }
+.field { display: flex; flex-direction: column; gap: var(--space-6); }
+.field.check { flex-direction: row; align-items: center; gap: var(--space-8); }
+.field select {
+  font: inherit;
+  padding: var(--space-6);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+/* Empty state */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-10);
+  padding: var(--space-40);
+  color: var(--text-dim);
+  min-height: 0;
+  overflow: auto;
+  justify-content: safe center;
+}
+.empty > * { flex-shrink: 0; }
+:root[data-compact-height="true"] .empty {
+  padding: var(--space-16);
+  gap: var(--space-8);
+}
+.empty h1 { color: var(--text); margin: 0; }
+.empty .err { color: var(--error); }

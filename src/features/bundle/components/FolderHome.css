@@ -1,0 +1,167 @@
+/* Folder Home — a directory's index.md landing: intro prose over a grid of
+   child-entry cards. A centered reading column, tokens only. */
+
+.folder-home {
+  height: 100%;
+  min-height: 0; /* scroll own content, not the workspace */
+  overflow-y: auto;
+  padding: var(--space-24) var(--space-32);
+}
+
+.fh-header {
+  max-width: 60rem;
+  margin: 0 auto var(--space-20);
+}
+
+.fh-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+  font-size: var(--fs-sm);
+}
+.fh-crumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.fh-crumb:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.fh-crumb + .fh-crumb::before {
+  content: "/";
+  margin: 0 var(--space-6) 0 var(--space-2);
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.fh-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--fs-xl);
+}
+
+.fh-synth {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fh-intro {
+  max-width: 60rem;
+  margin: 0 auto var(--space-24);
+  line-height: var(--lh-relaxed, 1.65);
+}
+.fh-intro > :first-child {
+  margin-top: 0;
+}
+.fh-intro > :last-child {
+  margin-bottom: 0;
+}
+
+/* Sections mirror the index's own headings, styled like the command palette's
+   group labels so grouped lists read the same everywhere. */
+.fh-section {
+  max-width: 60rem;
+  margin: 0 auto var(--space-16);
+}
+.fh-section-title {
+  margin: 0 0 var(--space-4);
+  padding: 0 var(--space-10);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+/* Entries are the app's borderless "concept door" rows (cf. .ov-row /
+   .palette-item): a leading type dot, a title, and a one-line description —
+   no per-item border, so a long list scans cleanly instead of reading as a
+   grid of boxes. */
+.fh-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.fh-row {
+  font: inherit;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-10);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.fh-row:hover {
+  background: var(--ghost-hover);
+}
+.fh-row:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+
+/* A fixed-width mark column so titles share a left edge and the dot centers on
+   the title's line box (row is top-aligned for the two-line body). */
+.fh-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1.5em;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+.fh-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.fh-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fh-row-title {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fh-row-desc {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-snug);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fh-empty {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0 var(--space-10);
+}

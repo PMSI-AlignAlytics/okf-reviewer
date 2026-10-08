@@ -1,0 +1,4 @@
+interface:
+  display_name: "OKF Consumer"
+  short_description: "Navigate and interpret compatible OKF bundles"
+  default_prompt: "Use $okf-consumer to inspect and explain this OKF bundle."

@@ -1,0 +1,101 @@
+/* Bottom status bar — a thin, full-width strip spanning below the workspace.
+   Colors come only from role tokens. See docs/features/validation.md. */
+.status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  height: 26px;
+  padding: 0 var(--space-6);
+  background: var(--bg-chrome);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+.status-quiz-generation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--text-dim);
+}
+
+.status-quiz-generation > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-quiz-generation__spinner {
+  flex: 0 0 auto;
+  color: var(--accent);
+  animation: status-quiz-spin 900ms linear infinite;
+}
+
+.status-quiz-generation button {
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-quiz-generation button:hover {
+  background: var(--ghost-hover);
+}
+
+@keyframes status-quiz-spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-region {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-6);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+button.status-item {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+button.status-item:hover {
+  background: var(--ghost-hover);
+  color: var(--text);
+}
+button.status-item:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+/* A toggle whose panel is open reads as recessed/active. */
+.status-item.is-active {
+  background: var(--ghost-active);
+  color: var(--text);
+}
+
+.status-icon {
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
+
+.status-git-counts {
+  display: inline-flex;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}

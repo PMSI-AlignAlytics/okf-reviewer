@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/features/reader/components/Reader.css"
+        ],
+        "createdAt": "2026-10-07T17:19:59.302Z",
+        "reason": "Agent: borders are unchanged from origin/main and identify reliability states, GFM alert callouts, and Markdown quotations; the existing callout comment explicitly describes the colored left rule as an authored reading cue."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/styles.css"
+        ],
+        "createdAt": "2026-10-07T17:19:59.391Z",
+        "reason": "Agent: unchanged legacy issue-list styling uses the left border to distinguish error and warning severity through the .issues li.error and .issues li.warning selectors; it is outside the bundle-link fix and is not a decorative card accent."
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/shared/render/markdown.dom.test.ts"
+        ],
+        "createdAt": "2026-10-08T15:43:24.797Z",
+        "reason": "Codex: this file intentionally tests malicious and malformed Markdown image input and sanitization; its literal image strings are security fixtures, not shipped UI."
+      }
+    ]
+  }
+}

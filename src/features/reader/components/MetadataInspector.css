@@ -1,0 +1,198 @@
+.metadata-inspector {
+  min-width: 0;
+  color: var(--text);
+}
+
+/* One title row: uppercase module title (matching .rail-title) with the
+   source file pinned to the right edge as quiet provenance. */
+.metadata-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+
+.metadata-head h2 {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metadata-head > code {
+  margin-inline-start: auto;
+  min-width: 0;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.metadata-tree {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.metadata-tree .metadata-tree {
+  margin: var(--space-4) 0 0 var(--space-8);
+  padding-left: var(--space-8);
+  border-left: 1px solid var(--border);
+}
+
+.metadata-scalar {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.metadata-key {
+  min-width: 0;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.metadata-scalar > code {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.metadata-copy {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.metadata-copy:hover {
+  color: var(--text);
+  background: var(--ghost-hover);
+}
+
+.metadata-branch {
+  position: relative;
+}
+
+.metadata-branch details {
+  min-width: 0;
+}
+
+/* The branch copy button overlays the summary row's right edge (a sibling of
+   <details>, not a child of the interactive <summary>). Every row spans the
+   full tree width, so copy buttons at every nesting depth share one
+   right-edge column instead of stepping left per level. */
+.metadata-branch > .metadata-copy {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* caret | key | count pill start-aligned in the slack; the right padding
+   reserves the overlaid copy button's lane. */
+.metadata-branch summary {
+  display: grid;
+  grid-template-columns: 12px auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 24px;
+  padding-inline-end: calc(24px + var(--space-6));
+  cursor: pointer;
+}
+
+.metadata-branch summary::marker {
+  content: "";
+}
+
+.metadata-branch summary::before {
+  content: "›";
+  color: var(--text-dim);
+  transform-origin: center;
+}
+
+.metadata-branch details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.metadata-summary,
+.metadata-notice,
+.metadata-limit {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+/* The "object · 2 items" chip as the same quiet pill as .rail-count, and
+   never broken mid-chip: it truncates instead of wrapping to a second line. */
+.metadata-summary {
+  justify-self: start;
+  max-width: 100%;
+  padding: 0 var(--space-6);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-sunken);
+  border-radius: 999px;
+}
+
+.metadata-notice {
+  margin: 0;
+  font-style: italic;
+}
+
+.metadata-limit {
+  display: block;
+  margin: var(--space-4) 0 0 var(--space-16);
+}
+
+.metadata-story-frame {
+  width: min(34rem, 100%);
+  min-height: 24rem;
+  padding: var(--space-16);
+  background: var(--bg);
+}
+
+@media (max-width: 30rem) {
+  .metadata-scalar {
+    grid-template-columns: minmax(0, 1fr) 24px;
+  }
+
+  .metadata-scalar > code {
+    grid-column: 1;
+  }
+
+  .metadata-scalar > .metadata-copy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .metadata-branch summary {
+    grid-template-columns: 12px minmax(0, 1fr);
+    gap: var(--space-2) var(--space-6);
+  }
+
+  .metadata-branch summary .metadata-summary {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

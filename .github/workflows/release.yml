@@ -1,0 +1,118 @@
+name: Release
+
+# When a GitHub Release is published, build the desktop app and attach the
+# installers/packages to that release. Create a release (e.g. from a tag like
+# v0.1.0) and publish it to trigger this.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # .deb links against the *system* libraries, so building on an older
+          # base keeps it installable on 22.04 and every newer release.
+          - platform: ubuntu-22.04
+            label: deb
+            args: --bundles deb
+          # The AppImage *bundles* glib/Mesa, so build it on the current LTS:
+          # a 22.04-bundled AppImage breaks on modern hosts (glib symbol +
+          # EGL_BAD_PARAMETER). 26.04 is a preview runner for now.
+          - platform: ubuntu-26.04
+            label: appimage
+            args: --bundles appimage
+          # Windows: .msi + NSIS .exe (from the tauri.conf bundle targets).
+          - platform: windows-latest
+            label: msi+nsis
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Tauri 2 on Linux links against WebKitGTK 4.1 and friends; AppImage needs
+      # patchelf. (The official Tauri prerequisites list for Debian/Ubuntu.)
+      - name: Install Linux build dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build scripts and package dependencies run without a write token.
+      - name: Build app
+        run: pnpm tauri build ${{ matrix.args }}
+
+      - name: Save installer artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
+
+  publish:
+    name: Upload installers to release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: release-assets
+      - name: Upload installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          mapfile -d '' installers < <(find release-assets -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.exe' \) -print0)
+          test "${#installers[@]}" -gt 0
+          gh release upload --repo "$REPOSITORY" -- "$RELEASE_TAG" "${installers[@]}"

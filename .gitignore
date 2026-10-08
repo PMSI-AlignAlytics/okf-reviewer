@@ -1,0 +1,46 @@
+# Node / frontend
+node_modules
+.pnpm-store/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# Rust / Tauri
+src-tauri/target/
+target/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.log
+
+# Private local configuration and credentials (share example files instead)
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.template
+.npmrc
+.cursor/mcp.json
+.claude/settings.local.json
+.claude/settings.json
+.aws/
+auth.json
+credentials.json
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.key
+*.p12
+*.pfx
+
+# Python audit tooling
+__pycache__/
+*.py[cod]
+
+# Tauri generated
+/src-tauri/gen/

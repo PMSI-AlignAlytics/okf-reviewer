@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "okf-quiz",
+  "title": "Generate an evidence-bound knowledge quiz",
+  "capabilityId": "okf-quiz",
+  "skillResourceId": "okf-quiz-instructions",
+  "artifactSchemaId": "okf-quiz-v1",
+  "readOnly": true,
+  "providerIndependent": true,
+  "usesFrozenEvidencePacket": true,
+  "allowsBundleChanges": false,
+  "allowsSettingsMutation": false,
+  "allowedTools": ["repository-read", "git-read"],
+  "networkPolicy": "provider-transport-only"
+}

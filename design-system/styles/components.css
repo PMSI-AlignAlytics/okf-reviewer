@@ -1,0 +1,452 @@
+/* components.css: the rules the example assets render with. Every value comes
+   from a token custom property (var(--…)); no hard-coded literals. BEM naming:
+   .block, .block--modifier, .block__element. */
+
+/* --- Buttons ---
+   Feedback is border and background only. No lift, no glow: elevation is
+   reserved for surfaces that genuinely float (see foundations/elevation.md). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-20);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--colors-focus);
+  outline-offset: 2px;
+}
+/* The one action a page is built around (the hero and band download). */
+.btn--lg {
+  padding: var(--space-16) var(--space-24);
+  font-size: var(--text-base);
+}
+.btn--primary {
+  background: var(--colors-primary);
+  color: var(--colors-on-primary);
+}
+.btn--primary:hover { background: var(--colors-primary-hover); }
+.btn--secondary {
+  background: var(--colors-surface-2);
+  color: var(--colors-text);
+  border-color: var(--colors-border-strong);
+}
+.btn--secondary:hover {
+  background: var(--colors-surface-2);
+  border-color: var(--colors-text-dim);
+}
+.btn--ghost {
+  background: transparent;
+  color: var(--colors-text-muted);
+}
+.btn--ghost:hover { color: var(--colors-text); }
+
+/* --- Download button (OS-specific CTA) --- */
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-20);
+  min-width: 230px;
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-md);
+  background: var(--colors-surface);
+  color: var(--colors-text);
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+.dl-btn:hover {
+  border-color: var(--colors-primary);
+  background: var(--colors-surface-2);
+}
+.dl-btn__glyph { font-size: 1.25rem; line-height: 1; color: var(--colors-text-muted); }
+.dl-btn__text { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.dl-btn__os { font-weight: var(--font-weight-semibold); font-size: var(--text-sm); }
+.dl-btn__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--colors-text-dim);
+}
+/* Trailing download arrow: the quiet affordance that makes the card read as
+   an action, not an info tile. Dim at rest; on hover it takes the accent and
+   nudges down a touch (instant under reduced motion). */
+.dl-btn__arrow {
+  margin-left: auto;
+  padding-left: var(--space-12);
+  color: var(--colors-text-dim);
+  transition: color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+.dl-btn:hover .dl-btn__arrow {
+  color: var(--colors-primary);
+  transform: translateY(2px);
+}
+
+/* --- Eyebrow label ---
+   Dim, not accent: the accent is reserved for what a reader can click. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--colors-text-dim);
+}
+
+/* --- Site nav: a floating pill, not a page-wide strip. Nearly opaque with a
+   backdrop blur so content scrolls under it without ghosting through; the page
+   applies sticky positioning (the pill itself only owns its shape). --- */
+.site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-24);
+  padding: var(--space-8) var(--space-12) var(--space-8) var(--space-20);
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--colors-surface) 94%, transparent);
+  backdrop-filter: saturate(140%) blur(16px);
+  box-shadow: var(--shadow-sm);
+}
+/* Actions inside the pill take its curvature. */
+.site-nav .btn {
+  border-radius: var(--radius-pill);
+}
+.site-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-tight);
+  color: var(--colors-text);
+  text-decoration: none;
+}
+.site-nav__logo { width: 24px; height: 24px; border-radius: var(--radius-sm); }
+.site-nav__links { display: flex; align-items: center; gap: var(--space-16); }
+.site-nav__link {
+  color: var(--colors-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  /* Comfortable click/tap area inside the pill without growing its height. */
+  padding: var(--space-8) var(--space-4);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.site-nav__link:hover { color: var(--colors-text); }
+/* The active route stays visible: full text color plus an accent underline. */
+.site-nav__link[aria-current="page"] {
+  color: var(--colors-text);
+  text-decoration: underline;
+  text-decoration-color: var(--colors-primary);
+  text-underline-offset: 6px;
+}
+
+/* --- Nav disclosure: the Product menu inside the pill. A button (not a hover
+   target) opens a small floating panel of routes; the page script owns
+   aria-expanded, Escape, and outside-click behavior. --- */
+.nav-menu { position: relative; }
+.nav-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-4);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--colors-text-muted);
+  cursor: pointer;
+}
+.nav-menu__trigger:hover,
+.nav-menu__trigger[aria-expanded="true"] { color: var(--colors-text); }
+.nav-menu__trigger[data-active="true"] {
+  color: var(--colors-text);
+  text-decoration: underline;
+  text-decoration-color: var(--colors-primary);
+  text-underline-offset: 6px;
+}
+/* The chevron flips while open; instant under reduced motion (global rule). */
+.nav-menu__chevron {
+  font-size: 0.625em;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.nav-menu__trigger[aria-expanded="true"] .nav-menu__chevron { transform: rotate(180deg); }
+.nav-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--space-12));
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-8);
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--colors-surface) 97%, transparent);
+  backdrop-filter: saturate(140%) blur(16px);
+  box-shadow: var(--shadow-md);
+}
+.nav-menu__panel[hidden] { display: none; }
+.nav-menu__item {
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-sm);
+  color: var(--colors-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+.nav-menu__item:hover {
+  background: var(--colors-surface-2);
+  color: var(--colors-text);
+}
+.nav-menu__item[aria-current="page"] { color: var(--colors-text); }
+
+/* --- Mobile menu: the same destinations as the desktop bar, presented as a
+   panel below the pill at narrow widths. Product expands inline as a labelled
+   group; no focus trap; the page script restores focus to the Menu button. --- */
+.mobile-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--colors-surface) 98%, transparent);
+  backdrop-filter: saturate(140%) blur(16px);
+  box-shadow: var(--shadow-md);
+}
+.mobile-menu[hidden] { display: none; }
+.mobile-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-8);
+  padding: 0 0 var(--space-8);
+  border-bottom: var(--border-width) solid var(--colors-border);
+}
+.mobile-menu__label {
+  padding: var(--space-8) var(--space-12) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--colors-text-dim);
+}
+.mobile-menu__link {
+  padding: var(--space-12);
+  border-radius: var(--radius-sm);
+  color: var(--colors-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+.mobile-menu__link:hover {
+  background: var(--colors-surface-2);
+  color: var(--colors-text);
+}
+.mobile-menu__link[aria-current="page"] { color: var(--colors-text); }
+
+/* --- Feature card ---
+   Hover changes the edge only. The card does not move: a grid that jumps under
+   the pointer reads as decoration (see foundations/elevation.md). --- */
+.feature-card {
+  padding: var(--space-24);
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-lg);
+  background: var(--colors-surface);
+  transition: border-color var(--duration-base) var(--ease-standard);
+}
+.feature-card:hover {
+  border-color: var(--colors-border-strong);
+}
+.feature-card__glyph {
+  display: inline-flex;
+  width: 40px; height: 40px;
+  align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-md);
+  background: var(--colors-surface-2);
+  margin-bottom: var(--space-16);
+  font-size: var(--text-base);
+  color: var(--colors-text-muted);
+}
+.feature-card__title {
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--colors-text);
+}
+.feature-card__body {
+  margin: 0;
+  color: var(--colors-text-muted);
+  line-height: var(--leading-normal);
+}
+/* Optional trailing route link: a card may point at its detail page. One link
+   at most; it stays a quiet text affordance, not a second button. */
+.feature-card__link {
+  display: inline-block;
+  margin-top: var(--space-16);
+  color: var(--colors-primary);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+.feature-card__link:hover { text-decoration: underline; }
+
+/* --- Viz card --- */
+/* A screenshot with its caption on one surface: media bleeds to the card's
+   edge (the hero's grounded-media motif at card scale), text sits below. */
+.viz-card {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-lg);
+  background: var(--colors-surface);
+  overflow: hidden;
+  transition: border-color var(--duration-base) var(--ease-standard);
+}
+.viz-card:hover {
+  border-color: var(--colors-border-strong);
+}
+.viz-card__media {
+  margin: 0; /* a <figure>: UA margin would inset the bleed */
+  border-bottom: var(--border-width) solid var(--colors-border);
+  aspect-ratio: 1760 / 1117;
+}
+.viz-card__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.viz-card__title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--colors-text);
+}
+.viz-card__text {
+  padding: var(--space-20) var(--space-24);
+}
+.viz-card__body {
+  margin: 0;
+  color: var(--colors-text-muted);
+  line-height: var(--leading-normal);
+}
+
+/* --- Definition rows: a set of named claims on one hairline-divided surface,
+   term on the left and its description on the right. Takes any number of
+   entries without leaving a hole, which a card grid cannot. --- */
+.deflist {
+  margin: 0;
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-xl);
+  background: var(--colors-surface);
+  overflow: hidden;
+}
+.deflist__row {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--space-32);
+  padding: var(--space-24) var(--space-32);
+  border-top: var(--border-width) solid var(--colors-border);
+}
+.deflist__row:first-child {
+  border-top: none;
+}
+.deflist__term {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--colors-text);
+}
+.deflist__desc {
+  margin: 0;
+  color: var(--colors-text-muted);
+  line-height: var(--leading-normal);
+}
+/* Block, not inline-block: the link follows the description text inside the
+   same <dd>, and inline-block leaves it glued to the final full stop. */
+.deflist__link {
+  display: block;
+  width: fit-content;
+  margin-top: var(--space-8);
+  color: var(--colors-primary);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+.deflist__link:hover { text-decoration: underline; }
+@media (max-width: 860px) {
+  .deflist__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+    padding: var(--space-20) var(--space-24);
+  }
+}
+
+/* --- Code sample: a named file and its literal contents, on one surface.
+   Two levels of emphasis, no syntax rainbow: structure in `colors.text`,
+   contents in `colors.text-muted`, annotations in `colors.text-dim`. --- */
+.code {
+  border: var(--border-width) solid var(--colors-border);
+  border-radius: var(--radius-lg);
+  background: var(--colors-surface);
+  overflow: hidden;
+}
+.code__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-20);
+  border-bottom: var(--border-width) solid var(--colors-border);
+  background: var(--colors-surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--colors-text-muted);
+}
+.code pre {
+  margin: 0;
+  padding: var(--space-20);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--colors-text-muted);
+  tab-size: 2;
+}
+.code b {
+  font-weight: var(--font-weight-medium);
+  color: var(--colors-text);
+}
+.code i {
+  font-style: normal;
+  color: var(--colors-text-dim);
+}
+
+/* --- Layout helpers used by the pattern examples --- */
+.stack { display: flex; flex-direction: column; }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.001ms !important; }
+}

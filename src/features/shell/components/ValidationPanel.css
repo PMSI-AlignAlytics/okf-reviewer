@@ -1,0 +1,380 @@
+/* Validation panel. Inherits the base `.panel` docking (fixed, right edge,
+   full height) from styles.css. Here we add only the internal layout: a fixed
+   header above a flex-growing Base UI ScrollArea, and the issue-list styling.
+   Color comes from role variables; spacing/type/radius from scale tokens. */
+
+/* Override the base `.panel` block-scroll + padding so the header stays put and
+   the body scrolls inside its own ScrollArea instead. */
+.panel.validation,
+.panel.log-panel {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-10) var(--space-12) var(--space-10) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.vp-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.vp-intro {
+  flex: 0 0 auto;
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.vp-intro p {
+  margin: 0;
+  line-height: var(--lh-normal);
+  text-wrap: pretty;
+}
+
+.vp-summary {
+  font-size: var(--fs-xs);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.vp-export-status {
+  color: var(--text);
+}
+
+.vp-state {
+  margin: 0;
+  padding: var(--space-16);
+  color: var(--text-dim);
+}
+
+.vp-state.error {
+  color: var(--error);
+}
+
+/* The ScrollArea fills the space below the header. */
+.vp-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.vp-body {
+  padding: var(--space-8) var(--space-12) var(--space-16);
+}
+
+.vp-group + .vp-group {
+  margin-top: var(--space-16);
+}
+
+.vp-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 var(--space-6);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+/* Plain count after the group label — no pill chrome. */
+.vp-count {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.vp-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vp-issue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.vp-issue-agent {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.vp-issue-agent:hover {
+  color: var(--text);
+  background: var(--ghost-hover);
+}
+
+.vp-issue-agent:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+
+.vp-issue-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+}
+
+.vp-review-trigger {
+  min-height: 28px;
+  padding: 0 var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.vp-review-trigger:hover {
+  color: var(--text);
+  background: var(--ghost-hover);
+}
+
+/* Flat problems-list rows (the VS Code pattern): a severity dot, the message,
+   and the dim concept id beneath — no card fill, no borders, no per-row
+   severity word repeating the group heading right above it. Hover carries the
+   row affordance for clickable issues. */
+.vp-issue-body {
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  column-gap: var(--space-8);
+  row-gap: var(--space-2);
+  padding: var(--space-6) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+}
+.vp-issue-body.clickable {
+  cursor: pointer;
+}
+.vp-issue-body.clickable:hover {
+  background: var(--ghost-hover);
+}
+.vp-issue-body:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+
+.vp-issue-dot {
+  grid-column: 1;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px; /* optically centers on the message's first line */
+  border-radius: 50%;
+}
+.vp-issue-dot.error {
+  background: var(--error);
+}
+.vp-issue-dot.warning {
+  background: var(--warn);
+}
+.vp-issue-dot.advice {
+  background: var(--accent);
+}
+.vp-issue-dot.information {
+  background: var(--text-dim);
+}
+
+.vp-msg {
+  grid-column: 2;
+  line-height: var(--lh-tight);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.vp-finding-meta {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  min-width: 0;
+}
+
+.vp-finding-meta code,
+.vp-repair code {
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.vp-repair {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+  padding-top: var(--space-4);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.vp-review-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  color: var(--text);
+}
+
+.vp-review-message .btn {
+  flex: 0 0 auto;
+}
+
+.vp-review {
+  flex: 0 0 auto;
+  max-height: 58%;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.vp-review-head,
+.vp-review-footer,
+.vp-hunk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.vp-review-head > div {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.vp-review-head code,
+.vp-hunk-header {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.vp-review-alert,
+.vp-review-issues {
+  color: var(--error);
+}
+
+.vp-hunks {
+  display: grid;
+  gap: var(--space-8);
+  margin: var(--space-12) 0;
+}
+
+.vp-hunk {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.vp-hunk pre {
+  max-height: 12rem;
+  margin: 0;
+  overflow: auto;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  white-space: pre;
+}
+
+.vp-hunk-actions {
+  justify-content: flex-end;
+}
+
+.vp-hunk-actions .btn[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.vp-review-issues {
+  margin: 0 0 var(--space-12);
+  padding-left: var(--space-16);
+}
+
+.vp-review-footer {
+  justify-content: flex-end;
+}
+
+@container app-viewport (max-width: 30rem) {
+  .vp-repair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .vp-issue {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vp-issue-actions {
+    justify-content: flex-end;
+    padding: 0 var(--space-8) var(--space-6);
+  }
+
+  .vp-review {
+    max-height: 62%;
+    padding: var(--space-12);
+  }
+
+  .vp-review-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.vp-conformant {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-16);
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.vp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.vp-dot.ok {
+  background: var(--ok);
+}

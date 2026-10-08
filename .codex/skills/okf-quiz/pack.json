@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "okf-quiz",
+  "version": "1.0.0",
+  "name": "OKF Quiz",
+  "description": "Application-owned resources for provider-neutral, evidence-bound OKF quiz generation.",
+  "publisher": "OKF Review",
+  "provenance": "built-in",
+  "compatibility": {
+    "taskSchemaVersion": 1,
+    "artifactSchemaVersion": 1
+  },
+  "task": {
+    "path": "task.json",
+    "mediaType": "application/json",
+    "sha256": "ed17ea92a36666d791e5d27adda788208b1fb86e00eb7a99ca526b0873510e0c"
+  },
+  "resources": [
+    {
+      "id": "okf-quiz-instructions",
+      "path": "SKILL.md",
+      "mediaType": "text/markdown",
+      "sha256": "f82c330ff4b6c8d9676282ba3ebfcec8e118ec2a5f27048681c4144da5565af8"
+    },
+    {
+      "id": "okf-consumer-instructions",
+      "path": "../okf-consumer/SKILL.md",
+      "mediaType": "text/markdown",
+      "sha256": "f299b6f7a75fea01cf77982a4ab83ec64a4e014cac0ba9f2391a9fb2f9d12bba"
+    },
+    {
+      "id": "okf-consumer-versions",
+      "path": "../okf-consumer/references/versions.md",
+      "mediaType": "text/markdown",
+      "sha256": "fabd1216d6e20b17a7e7cfc87bb00db0f06de0256bb9f9aa2eb4c761bfae10c2"
+    },
+    {
+      "id": "okf-quiz-v1",
+      "path": "schemas/okf-quiz-v1.schema.json",
+      "mediaType": "application/schema+json",
+      "sha256": "4b9ce87030fc7f1f8b5e123966963da6132c1c15591dca6f10d42e80ddc33c16"
+    },
+    {
+      "id": "okf-quiz-example-valid",
+      "path": "examples/valid-quiz.json",
+      "mediaType": "application/json",
+      "sha256": "28f61be110d1952ad2261429d164a893e30540d2e8065fa32091b488e9594768"
+    },
+    {
+      "id": "okf-quiz-example-insufficient-evidence",
+      "path": "examples/insufficient-evidence.json",
+      "mediaType": "application/json",
+      "sha256": "65dde10e09344d865b3310b2e96a519e4e2a18a77d176466c6e65f32cf421616"
+    },
+    {
+      "id": "okf-quiz-example-invalid-ambiguous-question",
+      "path": "examples/invalid-ambiguous-question.json",
+      "mediaType": "application/json",
+      "sha256": "6f1f4cfbb74a37cb9e6c835675352cd4f80e04e5e6893fd03eb11b6df2eeba3c"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "requestId": "request-example-001",
+  "bundleFingerprint": "bundle-fingerprint-001",
+  "scopeFingerprint": "scope-fingerprint-001",
+  "status": "insufficient-evidence",
+  "title": "Quiz unavailable",
+  "questions": [],
+  "warnings": [
+    "The selected evidence does not state a defensible decision, constraint, assumption, or important fact."
+  ]
+}

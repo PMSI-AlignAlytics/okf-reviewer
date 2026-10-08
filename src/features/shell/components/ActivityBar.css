@@ -1,0 +1,111 @@
+/* The persistent left Activity Bar. A fixed-width vertical column that fills the
+   height between the title bar and the window bottom; view switchers sit at the
+   top and global actions are pinned to the foot. Colors come only from role
+   tokens. See docs/ux/browsing-layout.md. */
+.activity-bar {
+  flex: 0 0 auto;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+  background: var(--bg-chrome);
+  border-right: 1px solid var(--border);
+}
+
+.activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.activity-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.activity-btn:hover {
+  background: var(--ghost-hover);
+  color: var(--text);
+}
+/* The active view switcher (sidebar showing this lens). VS Code marks it with a
+   left accent bar; we tint the icon and recess it. */
+.activity-btn[aria-pressed="true"] {
+  background: var(--ghost-hover);
+  color: var(--accent);
+}
+.activity-btn[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 20px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.activity-icon {
+  font-size: var(--fs-md);
+  line-height: 1;
+}
+
+/* Active-filter indicator: a small accent dot on the Filter icon, so a narrowed
+   graph stays discoverable even when the Filter lens is hidden. */
+.activity-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Update-available dot on the Settings gear: warn tone, and announced exactly
+   once — the dot springs in, sends two soft sonar rings, then rests perfectly
+   still. A looping pulse in a persistent rail would nag; all the motion is in
+   the arrival. Under reduce-motion the global duration kill switch collapses
+   both animations, leaving the plain resting dot. */
+.activity-badge--warn {
+  background: var(--warn);
+  animation: activity-badge-enter 260ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.activity-badge--warn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--warn);
+  opacity: 0;
+  animation: activity-badge-ping 900ms ease-out 2;
+  animation-delay: 260ms;
+}
+@keyframes activity-badge-enter {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes activity-badge-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}

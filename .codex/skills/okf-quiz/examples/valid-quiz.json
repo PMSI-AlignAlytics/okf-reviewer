@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "requestId": "request-example-001",
+  "bundleFingerprint": "bundle-fingerprint-001",
+  "scopeFingerprint": "scope-fingerprint-001",
+  "status": "ready",
+  "title": "Quiz generation trust boundary",
+  "questions": [
+    {
+      "id": "Q1",
+      "category": "architecture",
+      "criticality": "critical",
+      "learningObjective": "Apply the read-only evidence boundary during provider integration.",
+      "prompt": "A provider asks to inspect other repository files because one answer is unclear. What should the quiz task do?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Grant repository access for the duration of this question."
+        },
+        {
+          "id": "B",
+          "text": "Use general knowledge, but add a warning to the quiz."
+        },
+        {
+          "id": "C",
+          "text": "Use only the frozen evidence packet and skip material that remains ambiguous."
+        },
+        {
+          "id": "D",
+          "text": "Ask a web research tool to confirm the likely answer."
+        }
+      ],
+      "correctChoiceId": "C",
+      "explanation": "The task is deliberately bound to the frozen packet. Repository access, general knowledge, and web research would change the accepted scope.",
+      "evidence": [
+        {
+          "sourceId": "source-1",
+          "heading": "Evidence boundary",
+          "quote": "Providers receive a frozen evidence packet rather than unrestricted access to the project repository."
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,18 @@
+allowBuilds:
+  esbuild: true
+
+# Mermaid's KaTeX range still selects the vulnerable 0.16 series. Keep both
+# renderers on the patched version until Mermaid updates that constraint.
+overrides:
+  "mermaid>katex": "^0.19.0"
+  "brace-expansion@1": "^1.1.21"
+  "brace-expansion@5": "^5.0.12"
+  "browserslist@<4.28.7": "^4.28.7"
+  "baseline-browser-mapping@<2.11.0": "^2.11.0"
+
+patchedDependencies:
+  "@storybook/addon-vitest@10.5.2": patches/@storybook__addon-vitest@10.5.2.patch
+
+peerDependencyRules:
+  allowedVersions:
+    "eslint-plugin-jsx-a11y>eslint": "10"

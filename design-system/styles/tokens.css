@@ -1,0 +1,88 @@
+/* tokens.css: mechanical projection of the foundation `tokens` frontmatter.
+   Token path a.b.c -> --a-b-c, resolved literal value. Source of truth is the
+   foundation concepts under /foundations; regenerate with `/odsf token`. */
+:root {
+  /* color */
+  --colors-bg: #0B0B0D;
+  --colors-surface: #141518;
+  --colors-surface-2: #1C1D22;
+  --colors-border: #26272E;
+  --colors-border-strong: #34353E;
+  --colors-text: #EDEEF2;
+  --colors-text-muted: #A0A6B0;
+  --colors-text-dim: #7B808A;
+  --colors-primary: #74A0FF;
+  --colors-primary-hover: #92B4FF;
+  --colors-secondary: #9A6BFF;
+  --colors-indigo: #3E4BAF;
+  --colors-on-primary: #0B0B0D;
+  --colors-success: #5ED39A;
+  --colors-warning: #E0B341;
+  --colors-error: #FF7F72;
+  --colors-focus: #74A0FF;
+  --colors-gradient-brand: linear-gradient(135deg, #74A0FF, #9A6BFF);
+  --colors-gradient-tile: linear-gradient(180deg, #2A2A2E, #060608);
+
+  /* typography */
+  --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-features-sans: 'cv05' 1, 'cv11' 1, 'ss03' 1;
+  --text-display: clamp(2.25rem, 4.2vw, 3.25rem);
+  --text-h1: clamp(1.75rem, 2.6vw, 2.125rem);
+  --text-h2: 1.5rem;
+  --text-h3: 1.125rem;
+  --text-lg: 1.125rem;
+  --text-base: 1rem;
+  --text-sm: 0.9375rem;
+  --text-xs: 0.8125rem;
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.7;
+  --tracking-tighter: -0.028em;
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.08em;
+
+  /* spacing */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-80: 80px;
+  --space-96: 96px;
+  --space-128: 128px;
+  --size-container: 1120px;
+  --size-canvas: 1680px;
+  --size-measure: 40rem;
+  --size-headline: 24ch;
+
+  /* shape */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md: 0 8px 30px rgba(0,0,0,0.45);
+  --shadow-lg: 0 24px 70px rgba(0,0,0,0.55);
+
+  /* motion */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0.6, 0.2, 1);
+}

@@ -1,0 +1,144 @@
+/* Log View — co-located styles. Inherits the base .panel docking (fixed, right
+   edge, full height) from styles.css; the flex-column / no-padding popup layout
+   and shared .panel-head live in ValidationPanel.css (both bundle app-wide).
+   Colors come from role variables for light/dark parity. */
+
+.log-panel .log-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+/* The ScrollArea fills the space below the header. */
+.log-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The base .panel had padding; with that removed on the popup, pad the
+   scrolling content instead. */
+.log-scroll .ui-scrollarea-viewport > * {
+  padding: var(--space-12) var(--space-12);
+}
+
+.log-empty {
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-12);
+}
+
+/* A dated timeline (the changelog convention): each date heads a group whose
+   entries hang off a hairline rail, one dot per entry. The dot takes the
+   entry's conventional kind color — creation/update/fix/deprecation — so a
+   scan of the rail shows *what kind* of change happened when. */
+.log-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.log-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.log-date {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+}
+
+/* Scoped under .log-panel to outrank the generic `.panel ul` reset. */
+.log-panel .log-entries {
+  list-style: none;
+  margin: 0 0 0 3px; /* rail sits under the dots' centers */
+  padding: var(--space-2) 0 var(--space-2) var(--space-16);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.log-item {
+  position: relative;
+}
+.log-item::before {
+  content: "";
+  position: absolute;
+  /* Centered on the 1px rail: padding (16) + half the rail, minus half the dot. */
+  left: calc(-1 * var(--space-16) - 3.5px);
+  top: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.log-item[data-kind="creation"]::before {
+  background: var(--ok);
+}
+.log-item[data-kind="update"]::before {
+  background: var(--accent);
+}
+.log-item[data-kind="fix"]::before {
+  background: var(--warn);
+}
+.log-item[data-kind="deprecation"]::before {
+  background: var(--error);
+}
+
+/* Rendered markdown change lines. */
+.log-body.markdown {
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text);
+}
+.log-body.markdown > :first-child {
+  margin-top: 0;
+}
+.log-body.markdown > :last-child {
+  margin-bottom: 0;
+}
+.log-body p {
+  margin: 0.4em 0;
+}
+.log-body ul,
+.log-body ol {
+  margin: 0.3em 0;
+  padding-left: 1.3em;
+}
+.log-body li {
+  margin: 0.15em 0;
+}
+.log-body a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.log-body a:hover {
+  text-decoration: underline;
+}
+.log-body code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-sunken);
+  padding: 1px var(--space-4);
+  border-radius: var(--radius-sm);
+}
+.log-body pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-10) var(--space-12);
+  overflow-x: auto;
+}
+.log-body pre code {
+  background: none;
+  padding: 0;
+}

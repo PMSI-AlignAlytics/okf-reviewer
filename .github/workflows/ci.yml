@@ -1,0 +1,227 @@
+name: CI
+
+# Fast checks on every push to main and every pull request. The full per-OS
+# Tauri build is exercised by release.yml (it needs the platform toolchains and
+# a built frontend); CI here stays quick: the whole frontend, and the Rust core.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    name: Security — secrets · dependencies · publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Scan history and tracked files for secrets
+        shell: bash
+        run: |
+          tool_dir="$(mktemp -d)"
+          source_dir="$(mktemp -d)"
+          trap 'rm -rf "$tool_dir" "$source_dir"' EXIT
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$tool_dir/gitleaks.tar.gz"
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz' > "$tool_dir/SHA256SUMS"
+          (cd "$tool_dir" && sha256sum --check SHA256SUMS)
+          tar -xzf "$tool_dir/gitleaks.tar.gz" -C "$tool_dir" gitleaks
+          "$tool_dir/gitleaks" git . --log-opts=--all --redact=100 --no-banner --ignore-gitleaks-allow --max-archive-depth=4 --max-decode-depth=4
+          git archive HEAD | tar -x -C "$source_dir"
+          "$tool_dir/gitleaks" dir "$source_dir" --redact=100 --no-banner --ignore-gitleaks-allow --max-archive-depth=4 --max-decode-depth=4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level low
+      - run: pnpm check:publication
+      - run: python3 scripts/test-publication.py
+      - run: python3 scripts/test-audit-rust.py
+      - run: python3 scripts/audit-rust.py
+
+  frontend:
+    name: Frontend fast lane — lint · typecheck · gates · unit · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+      # The theme gates: `var(--nope)` (invalid at computed-value time, and
+      # silent), all 108 AA pairings per theme including ink on the state fills,
+      # and the design-system bundle's declared sync with src/styles.css. All
+      # three read files and do arithmetic, so they cost seconds and fail before
+      # the browser lanes spend minutes.
+      - run: pnpm check:theme
+      - run: pnpm check:quiz-schema
+
+      # The release version lives in the manifests and design-system examples.
+      # releases in a row were bumped by hand with nothing checking they agreed,
+      # A disagreement is silent until an installer exposes the wrong version.
+      - run: pnpm check:version
+
+      # docs/ is the product spec and the app's built-in sample, so malformed
+      # concepts would ship as content.
+      - run: node scripts/okf-validate.mjs docs
+
+      - run: pnpm test
+      - run: pnpm build
+
+  frontend-integration:
+    name: Frontend integration — full app · axe
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+
+  frontend-stories:
+    name: Frontend stories — Chromium interactions · visual consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check:render-security
+      # Runs every story's play function AND the visual-consistency audit that
+      # .storybook/preview.tsx applies after each one (off-scale gaps, prose with
+      # no reading measure, uneven repeated rows, hit targets under 24px, content
+      # clipped with no affordance).
+      - run: pnpm test:stories
+
+  core:
+    name: Rust core — clippy · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      # okf-core is pure Rust (no Tauri/webkit), so it needs no system libraries
+      # and no built frontend — keeping this job fast.
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -p okf-core --all-targets -- -D warnings
+      - run: cargo test -p okf-core
+
+  native-host:
+    name: Native host — clippy · test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      # Windows exercises the native Tauri host without the Linux WebKitGTK
+      # setup used by packaging. This covers local bundle grants, review writes,
+      # filesystem watching, and their concurrency checks.
+      - run: cargo clippy -p okf-viewer --all-targets -- -D warnings
+      - run: cargo test -p okf-viewer --no-fail-fast
+
+  native-linux:
+    name: Linux GLib — optimized security regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Linux native libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      # Windows does not load GLib. This Linux job exercises the affected
+      # iterator methods with the profile.test.package.glib optimization.
+      - run: cargo test -p okf-viewer --test glib_security --locked

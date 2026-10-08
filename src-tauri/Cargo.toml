@@ -1,0 +1,53 @@
+[package]
+name = "okf-viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Browse local OKF v0.2 bundles and record explicit human reviews."
+default-run = "okf-viewer"
+
+[lib]
+name = "okf_viewer_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "okf-viewer"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tauri-plugin-opener = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml_ng = "0.10"
+sha2 = "0.10"
+jsonschema = { version = "0.49", default-features = false }
+okf-core = { path = "../crates/okf-core" }
+notify = "6"
+time = { version = "0.3", features = ["formatting", "parsing"] }
+dunce = "1"
+keyring = "4.1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["process", "sync", "time"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+zeroize = "1.8"
+
+# Desktop only. window-state restores the main window size, position, and
+# maximized/fullscreen state across launches.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
+
+# Linux only: disable WebKitGTK's native trackpad pinch-zoom (it bypasses the JS
+# guards that cover WebView2/WKWebView — see src/native.ts). Versions pinned to
+# wry's, so the WebView/GTK types unify with the ones Tauri hands us; gtk brings
+# the matching glib (re-exported as gtk::glib).
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "=2.0.2"
+gtk = "=0.18.2"

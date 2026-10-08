@@ -1,0 +1,209 @@
+.ui-dialog.settings-dialog {
+  box-sizing: border-box;
+  top: 50%;
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  padding: 0;
+  transform: translate(-50%, -50%);
+}
+
+.settings-dialog[data-starting-style],
+.settings-dialog[data-ending-style] {
+  transform: translate(-50%, calc(-50% - var(--space-6)));
+}
+
+.settings-anchor {
+  min-width: 0;
+  scroll-margin-top: var(--space-16);
+}
+
+.settings-anchor:focus {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+.settings-bundle-scope {
+  min-width: 0;
+}
+
+.settings-bundle-scope__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.settings-bundle-scope__header span {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+}
+
+.settings-bundle-scope .workspace-memory-settings {
+  margin-top: var(--space-24);
+}
+
+.settings-text-input,
+.settings-reviewer-id {
+  width: min(280px, 100%);
+  min-height: 32px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-text-input {
+  padding: 5px 8px;
+}
+
+.settings-reviewer-id {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.settings-reviewer-id > span {
+  padding-left: 8px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.settings-reviewer-id input {
+  min-width: 0;
+  min-height: 30px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.settings-text-input:focus,
+.settings-reviewer-id:focus-within {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+.settings-generator {
+  display: grid;
+  gap: var(--space-12);
+  padding: var(--space-16) 0;
+  border-top: 1px solid var(--border);
+}
+
+.settings-generator__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.settings-generator h4,
+.settings-generator p {
+  margin: 0;
+}
+
+.settings-generator label {
+  display: grid;
+  gap: var(--space-6);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.settings-generator label > span,
+.settings-generator__actions > span {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+}
+
+.settings-generator__input {
+  width: min(520px, 100%);
+}
+
+.settings-generator__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.settings-generator__actions button,
+.setting-row__control > button {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-generator__actions button:disabled,
+.setting-row__control > button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.settings-generator__status,
+.settings-generator__message {
+  color: var(--success-text, var(--text));
+  font-size: var(--fs-xs);
+}
+
+.settings-generator__status--error {
+  color: var(--error);
+}
+
+.settings-generator--api {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-generator--api .settings-generator__actions {
+  grid-column: 1 / -1;
+}
+
+@container app-viewport (max-width: 760px) {
+  .settings-generator--api {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-generator--api .settings-generator__actions {
+    grid-column: auto;
+  }
+}
+.settings-reset-dialog {
+  width: min(460px, calc(var(--app-viewport-width) - var(--space-32)));
+}
+.settings-reset-dialog p {
+  color: var(--text-dim);
+  line-height: var(--lh-normal);
+}
+.settings-reset-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.settings-shortcuts > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding-block: var(--space-8);
+  border-bottom: 1px solid var(--border);
+}
+.settings-shortcuts kbd {
+  font: var(--fs-xs) var(--mono);
+  color: var(--text-dim);
+}

@@ -1,0 +1,249 @@
+/* TopBar layout. Visuals (.btn, .badge) live in chrome.css. */
+
+/* Three zones: left (Bundle Switcher), a window-centered command center
+   (back/forward + search), and right (layout · actions · window controls).
+   The 1fr side columns are equal, so the center column stays centered to the
+   window regardless of the side content's width. */
+.topbar {
+  display: grid;
+  /* The center column owns the command center's width — prominent and
+     responsive (grows with the window, bounded) — while the equal 1fr side
+     columns keep it centered to the window. The sides' max-content floor
+     means a tight window shrinks the search instead of letting the side
+     controls overlap it (the sides are capped: the Bundle Switcher trigger
+     ellipsizes at 22rem, the right zone is fixed-size controls). */
+  grid-template-columns:
+    minmax(max-content, 1fr)
+    minmax(0, clamp(20rem, 44vw, 44rem))
+    minmax(max-content, 1fr);
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+/* The focused review shell has one reader layout and no authoring/export
+   actions. Their inherited implementations stay isolated in the repository,
+   but are not part of this interface. */
+.topbar-bundle-actions,
+.layout-switch {
+  display: none;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  justify-self: start;
+}
+.topbar-bundle-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar-bundle-action {
+  flex: 0 0 auto;
+}
+
+.topbar-bundle-details {
+  position: relative;
+}
+
+.topbar-bundle-health {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  display: inline-grid;
+  width: 12px;
+  height: 12px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  box-shadow: 0 0 0 1px var(--bg-elev);
+}
+
+.topbar-bundle-health.is-ok {
+  color: var(--ok);
+}
+
+.topbar-bundle-health.is-warning {
+  color: var(--warn);
+}
+
+.topbar-bundle-health.is-error {
+  color: var(--error);
+}
+.topbar-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  /* Fill the (centered) command-center column so the search can stretch. */
+  justify-self: stretch;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  justify-self: end;
+  /* Stretch to the row's full height so WindowControls can in turn stretch to
+     fill the title bar — native caption buttons span its full height, not
+     just the height of their own icon. */
+  align-self: stretch;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+
+/* Toolbar.Separator renders a bare <div>; give it a thin token-colored rule. */
+.topbar [role="separator"] {
+  width: 1px;
+  align-self: stretch;
+  margin: var(--space-2) 0;
+  background: var(--border);
+}
+
+/* A ghost button whose panel is open is selected, not merely hovered — one
+   step past --ghost-hover so the two states stay distinguishable. */
+.topbar .btn.ghost.active {
+  background: var(--ghost-active);
+  color: var(--text);
+}
+
+/* 3-way layout segmented control: graph-only / split / reader-only. A sunken
+   track of three equal segments with a single raised thumb (::before) that
+   slides to the active one — a soft, native-feeling selection instead of a
+   loud accent fill. Each segment is the --space-32 × --space-24 button box. */
+.layout-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0; /* flush segments — reads as one control, not three buttons */
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+/* The sliding thumb: a raised tile behind the active segment. --seg (0/1/2),
+   set on the group in TopBar.tsx, positions it; the global reduce-motion rule
+   zeroes the slide. */
+.layout-switch::before {
+  content: "";
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  width: var(--space-32);
+  height: var(--space-24);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
+  transform: translateX(calc(var(--seg, 0) * var(--space-32)));
+  transition: transform var(--dur) var(--ease);
+}
+
+.layout-switch .layout-btn {
+  position: relative;
+  z-index: 1; /* sit above the thumb */
+  width: var(--space-32);
+  height: var(--space-24);
+  padding: 0;
+  justify-content: center;
+  color: var(--text-dim);
+  transition: color var(--dur) var(--ease);
+}
+/* The thumb owns the selected background; segments stay transparent even on
+   hover, so only the icon color responds. */
+.layout-switch .layout-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+}
+.topbar .layout-switch .layout-btn.active {
+  background: transparent;
+  color: var(--accent);
+}
+
+/* Icon panes: solid = pane shown, ghost = pane collapsed. The frame and fills
+   all inherit currentColor, so the icon tracks the segment's text color. */
+.layout-ico .pane {
+  fill: currentColor;
+}
+.layout-ico .pane[data-on="false"] {
+  fill-opacity: 0.22;
+}
+
+/* Always-visible search affordance: looks like a search field, acts as a button
+   that opens the launcher. See docs/proposals/global-search.md. */
+.topbar-search {
+  font: inherit;
+  font-size: var(--fs-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  /* Fills the command-center column beside the back/forward nav; the column
+     (TopBar grid) owns the responsive width. */
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-6) var(--space-10);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  cursor: text;
+  line-height: var(--lh-tight);
+}
+.topbar-search:hover {
+  background: var(--el-hover);
+  border-color: var(--border-strong);
+}
+.topbar-search:disabled {
+  cursor: default;
+  opacity: var(--disabled-opacity);
+}
+:root[data-compact-ui="true"] .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+:root[data-compact-ui="true"] .topbar-center {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+:root[data-compact-ui="true"] .topbar-right {
+  grid-column: 2;
+  grid-row: 1;
+}
+:root[data-compact-ui="true"] .topbar-left {
+  justify-self: stretch;
+}
+:root[data-compact-ui="true"] .topbar-switch {
+  width: min(16rem, 100%);
+  min-width: 0;
+}
+
+.topbar-search-icon {
+  font-size: var(--fs-md);
+  line-height: 1;
+}
+
+.topbar-search-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The one cap that overrides .kbd's surface: it sits inside the search field,
+   which is itself --bg-sunken, so a sunken cap on a sunken field disappears. */
+.topbar-search-kbd {
+  background: var(--bg-elev);
+}

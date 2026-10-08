@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "requestId": "request-example-001",
+  "bundleFingerprint": "bundle-fingerprint-001",
+  "scopeFingerprint": "scope-fingerprint-001",
+  "status": "ready",
+  "title": "Ambiguous quiz example",
+  "questions": [
+    {
+      "id": "Q1",
+      "category": "decision",
+      "criticality": "important",
+      "learningObjective": "Recognize the evidence boundary.",
+      "prompt": "Which evidence boundary applies?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Use the frozen evidence packet."
+        },
+        {
+          "id": "B",
+          "text": "  use THE frozen evidence packet.  "
+        },
+        {
+          "id": "C",
+          "text": "Use unrestricted repository evidence."
+        }
+      ],
+      "correctChoiceId": "A",
+      "explanation": "Two choices have the same normalized meaning and make the question ambiguous.",
+      "evidence": [
+        {
+          "sourceId": "source-1",
+          "heading": "Evidence boundary",
+          "quote": "Providers receive a frozen evidence packet rather than unrestricted access to the project repository."
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

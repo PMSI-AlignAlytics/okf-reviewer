@@ -1,0 +1,789 @@
+//! Integration tests against the real OKF bundle shipped at the repo's `docs/`
+//! directory, plus tolerance tests on synthetic bundles in a tempdir.
+//!
+//! These exercise the public surface (`scan_bundles`, `read_bundle`) end to end
+//! and assert the tolerant-consumer guarantees: malformed input becomes an
+//! issue, never a panic.
+
+use okf_core::model::{Bundle, Confidence, EntryKind, IssueLevel};
+use okf_core::{read_bundle, scan_bundles};
+use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
+
+/// Absolute path to the real `docs/` bundle (repo root / docs).
+fn docs_dir() -> PathBuf {
+    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs"))
+        .canonicalize()
+        .expect("docs/ bundle should exist")
+}
+
+fn concept_file_count(root: &Path) -> usize {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "md"))
+        .filter(|entry| !matches!(entry.file_name().to_str(), Some("index.md" | "log.md")))
+        .count()
+}
+
+#[test]
+fn scan_detects_docs_as_confident_root() {
+    let docs = docs_dir();
+    // Scan the parent so detection has to pick docs/ out as the root.
+    let parent = docs.parent().expect("docs has a parent");
+    let roots = scan_bundles(parent);
+
+    let docs_root = roots
+        .iter()
+        .find(|r| Path::new(&r.root) == docs.as_path())
+        .expect("docs/ should be detected as a bundle root");
+
+    assert_eq!(docs_root.confidence, Confidence::Confident);
+    assert_eq!(docs_root.okf_version.as_deref(), Some("0.2"));
+    assert_eq!(
+        docs_root.concept_count as usize,
+        concept_file_count(&docs),
+        "every non-reserved Markdown file should be detected as a concept"
+    );
+    assert!(
+        !docs_root.types.is_empty(),
+        "distinct concept types should be collected"
+    );
+    // Types must be sorted + distinct.
+    let mut sorted = docs_root.types.clone();
+    sorted.sort();
+    assert_eq!(docs_root.types, sorted);
+}
+
+#[test]
+fn scan_on_docs_itself_detects_root() {
+    let docs = docs_dir();
+    let roots = scan_bundles(&docs);
+    // The chosen folder may itself be the root.
+    assert!(
+        roots
+            .iter()
+            .any(|r| Path::new(&r.root) == docs.as_path() && r.confidence == Confidence::Confident),
+        "scanning docs/ directly should detect it as a confident root"
+    );
+}
+
+#[test]
+fn read_bundle_docs_full_shape() {
+    let docs = docs_dir();
+    let bundle = read_bundle(&docs);
+
+    assert_eq!(
+        bundle.concepts.len(),
+        concept_file_count(&docs),
+        "every non-reserved Markdown file should parse as a concept"
+    );
+    assert_eq!(bundle.okf_version.as_deref(), Some("0.2"));
+    assert_eq!(bundle.confidence, Confidence::Confident);
+
+    // Zero error-level issues: the bundle is conformant.
+    let errors: Vec<_> = bundle
+        .issues
+        .iter()
+        .filter(|i| i.level == IssueLevel::Error)
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "expected no error issues, got: {:?}",
+        errors
+    );
+
+    // Every concept has a non-empty type and id.
+    for c in &bundle.concepts {
+        assert!(!c.id.is_empty());
+        assert!(!c.concept_type.is_empty(), "{} has empty type", c.id);
+    }
+}
+
+#[test]
+fn known_edge_application_links_review_operation() {
+    let docs = docs_dir();
+    let bundle = read_bundle(&docs);
+
+    let application = bundle
+        .concepts
+        .iter()
+        .find(|c| c.id == "architecture/application")
+        .expect("application architecture concept exists");
+    assert!(
+        application
+            .links
+            .iter()
+            .any(|link| link == "review-operation"),
+        "application architecture should link to the review operation, got {:?}",
+        application.links
+    );
+
+    let review = bundle
+        .concepts
+        .iter()
+        .find(|c| c.id == "review-operation")
+        .expect("review operation concept exists");
+    assert!(
+        review
+            .cited_by
+            .iter()
+            .any(|id| id == "architecture/application"),
+        "review operation should be cited by the application architecture, got {:?}",
+        review.cited_by
+    );
+    assert_eq!(
+        review.degree,
+        (review.links.len() + review.cited_by.len()) as u32
+    );
+}
+
+#[test]
+fn docs_index_tree_has_root_node() {
+    let docs = docs_dir();
+    let bundle = read_bundle(&docs);
+
+    let root_node = bundle
+        .indexes
+        .iter()
+        .find(|n| n.dir.is_empty())
+        .expect("a root IndexNode (dir == \"\") exists");
+    assert!(!root_node.synthesized, "the root has a real index.md");
+    assert!(
+        !root_node.sections.is_empty(),
+        "root index should parse into sections"
+    );
+
+    // The root index lists the product/, features/, etc. subdirectories as
+    // directory entries somewhere, and concept entries resolve to ids.
+    let has_concept_entry = bundle
+        .indexes
+        .iter()
+        .flat_map(|n| &n.sections)
+        .flat_map(|s| &s.entries)
+        .any(|e| e.kind == EntryKind::Concept);
+    assert!(has_concept_entry, "index tree should have concept entries");
+}
+
+#[test]
+fn docs_log_has_entries() {
+    let docs = docs_dir();
+    let bundle = read_bundle(&docs);
+    assert!(!bundle.log.is_empty(), "log.md should parse to >=1 entry");
+    let first = &bundle.log[0];
+    // Newest-first; the top entry's heading is a verbatim ISO date. Assert the
+    // shape (YYYY-MM-DD), not a fixed day, so maintaining log.md doesn't break it.
+    let parts: Vec<&str> = first.date.split('-').collect();
+    assert!(
+        parts.len() == 3
+            && parts
+                .iter()
+                .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit())),
+        "newest log entry should be a verbatim ISO YYYY-MM-DD heading, got {:?}",
+        first.date
+    );
+    assert!(!first.entries.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Tolerance tests on synthetic bundles.
+// ---------------------------------------------------------------------------
+
+/// Create a unique temp directory under the system temp dir.
+fn temp_bundle(tag: &str) -> PathBuf {
+    let mut dir = std::env::temp_dir();
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    dir.push(format!("okf-core-test-{tag}-{pid}-{nanos}"));
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn write(dir: &Path, rel: &str, contents: &str) {
+    let path = dir.join(rel);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(path, contents).unwrap();
+}
+
+#[test]
+fn root_index_versions_are_read() {
+    let dir = temp_bundle("odsf-version");
+    write(
+        &dir,
+        "index.md",
+        "---\nodsf_version: \"0.1\"\nokf_version: \"0.1\"\n---\n# Design system\n* [Button](components/button.md)\n",
+    );
+    write(
+        &dir,
+        "components/button.md",
+        "---\ntype: Component\n---\nA button.\n",
+    );
+    let bundle = read_bundle(&dir);
+    // Whatever the fixture declares, read back verbatim. This test is about the
+    // reader, not about which version is current, so it stays on 0.1 — a
+    // consumer must keep reading a bundle that has not migrated.
+    assert_eq!(bundle.okf_version.as_deref(), Some("0.1"));
+    assert_eq!(bundle.odsf_version.as_deref(), Some("0.1"));
+
+    // A plain OKF bundle (no odsf_version) reads as None, never an error.
+    let plain = temp_bundle("no-odsf");
+    write(
+        &plain,
+        "index.md",
+        "---\nokf_version: \"0.1\"\n---\n# Plain\n",
+    );
+    write(&plain, "x.md", "---\ntype: Note\n---\nBody.\n");
+    assert_eq!(read_bundle(&plain).odsf_version, None);
+}
+
+#[test]
+fn root_extensions_survive_parse_ipc_and_inventory_without_affecting_conformance() {
+    let dir = temp_bundle("root-extensions");
+    write(
+        &dir,
+        "index.md",
+        concat!(
+            "---\n",
+            "okf_version: \"0.1\"\n",
+            "title: Producer title\n",
+            "profile:\n",
+            "  namespace: com.example.knowledge\n",
+            "  version: 2\n",
+            "  checks:\n",
+            "    - ownership\n",
+            "    - freshness\n",
+            "---\n",
+            "# Bundle title\n",
+        ),
+    );
+    write(&dir, "note.md", "---\ntype: Note\n---\nBody.\n");
+
+    let bundle = read_bundle(&dir);
+    assert_eq!(
+        bundle.extra.get("title"),
+        Some(&serde_json::Value::String("Producer title".to_string()))
+    );
+    assert_eq!(
+        bundle.extra["profile"]["namespace"],
+        serde_json::Value::String("com.example.knowledge".to_string())
+    );
+    assert_eq!(bundle.extra["profile"]["version"], "2");
+    assert_eq!(
+        bundle.extra["profile"]["checks"][1],
+        serde_json::Value::String("freshness".to_string())
+    );
+    assert!(!bundle.extra.contains_key("okf_version"));
+    assert!(bundle
+        .issues
+        .iter()
+        .all(|issue| issue.level != IssueLevel::Error));
+
+    let serialized = serde_json::to_string(&bundle).expect("serialize IPC bundle");
+    let round_trip: okf_core::Bundle =
+        serde_json::from_str(&serialized).expect("deserialize IPC bundle");
+    assert_eq!(round_trip.extra, bundle.extra);
+
+    let inventory = okf_core::query::inventory(&bundle, None, None, None, 0, 50);
+    assert_eq!(inventory.extra, bundle.extra);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn concept_missing_type_yields_error_not_panic() {
+    let dir = temp_bundle("missing-type");
+    write(&dir, "index.md", "---\nokf_version: \"0.1\"\n---\n# Tiny\n");
+    // Frontmatter present but no type -> error.
+    write(&dir, "a.md", "---\ntitle: A\n---\n# A\n");
+    // No frontmatter at all -> error.
+    write(&dir, "b.md", "# B has no frontmatter\n");
+    // A good concept so the bundle is non-empty.
+    write(&dir, "c.md", "---\ntype: Note\ntitle: C\n---\n# C\n");
+
+    let bundle = read_bundle(&dir);
+    assert_eq!(bundle.concepts.len(), 3);
+
+    let a = bundle.concepts.iter().find(|c| c.id == "a").unwrap();
+    assert_eq!(a.concept_type, "", "missing type stays empty, not a panic");
+
+    let errors: Vec<_> = bundle
+        .issues
+        .iter()
+        .filter(|i| i.level == IssueLevel::Error)
+        .collect();
+    assert!(
+        errors.iter().any(|i| i.concept_id.as_deref() == Some("a")),
+        "a.md (no type) should produce an error"
+    );
+    assert!(
+        errors.iter().any(|i| i.concept_id.as_deref() == Some("b")),
+        "b.md (no frontmatter) should produce an error"
+    );
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn broken_link_goes_to_broken_links_and_warning() {
+    let dir = temp_bundle("broken-link");
+    write(&dir, "index.md", "---\nokf_version: \"0.1\"\n---\n# B\n");
+    write(
+        &dir,
+        "a.md",
+        "---\ntype: Note\n---\n# A\nSee [missing](./nope.md) and [ok](b.md).\n",
+    );
+    write(&dir, "b.md", "---\ntype: Note\n---\n# B\n");
+
+    let bundle = read_bundle(&dir);
+    let a = bundle.concepts.iter().find(|c| c.id == "a").unwrap();
+    assert_eq!(a.links, vec!["b"], "valid link resolves");
+    assert_eq!(
+        a.broken_links,
+        vec!["./nope.md"],
+        "broken link preserved verbatim"
+    );
+
+    let warns: Vec<_> = bundle
+        .issues
+        .iter()
+        .filter(|i| i.level == IssueLevel::Warning)
+        .collect();
+    assert!(
+        warns
+            .iter()
+            .any(|i| i.concept_id.as_deref() == Some("a") && i.message.contains("nope.md")),
+        "broken cross-link should warn"
+    );
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn absolute_relative_and_dotdot_links_all_resolve() {
+    let dir = temp_bundle("link-forms");
+    write(&dir, "index.md", "---\nokf_version: \"0.1\"\n---\n# L\n");
+    // Bundle-absolute, same-dir relative, and parent-relative links.
+    write(
+        &dir,
+        "sub/start.md",
+        "---\ntype: Note\n---\n# Start\n\
+         [abs](/target.md) [rel](sibling.md) [up](../top.md)\n",
+    );
+    write(&dir, "sub/sibling.md", "---\ntype: Note\n---\n# Sibling\n");
+    write(&dir, "target.md", "---\ntype: Note\n---\n# Target\n");
+    write(&dir, "top.md", "---\ntype: Note\n---\n# Top\n");
+
+    let bundle = read_bundle(&dir);
+    let start = bundle
+        .concepts
+        .iter()
+        .find(|c| c.id == "sub/start")
+        .unwrap();
+    let mut links = start.links.clone();
+    links.sort();
+    assert_eq!(
+        links,
+        vec![
+            "sub/sibling".to_string(),
+            "target".to_string(),
+            "top".to_string()
+        ],
+        "absolute, relative, and .. links all resolve; got {:?}",
+        start.links
+    );
+    assert!(start.broken_links.is_empty());
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn missing_index_is_synthesized() {
+    let dir = temp_bundle("synth-index");
+    write(&dir, "index.md", "---\nokf_version: \"0.1\"\n---\n# Root\n");
+    // A subdirectory with concepts but no index.md.
+    write(
+        &dir,
+        "sub/one.md",
+        "---\ntype: Note\ntitle: One\n---\n# One\n",
+    );
+    write(
+        &dir,
+        "sub/two.md",
+        "---\ntype: Note\ntitle: Two\n---\n# Two\n",
+    );
+
+    let bundle = read_bundle(&dir);
+    let sub = bundle
+        .indexes
+        .iter()
+        .find(|n| n.dir == "sub")
+        .expect("sub/ should get an IndexNode");
+    assert!(
+        sub.synthesized,
+        "sub/ lacked index.md, so it is synthesized"
+    );
+    let titles: Vec<_> = sub
+        .sections
+        .iter()
+        .flat_map(|s| &s.entries)
+        .map(|e| e.title.as_str())
+        .collect();
+    assert!(titles.contains(&"One") && titles.contains(&"Two"));
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+/// Follow the same directory/concept entries the reader receives, starting at
+/// the bundle root. Backlinks and broken authored entries must not stop the walk.
+fn assert_fully_navigable(bundle: &Bundle) {
+    let mut pending = vec![""];
+    let mut directories = HashSet::new();
+    let mut concepts = HashSet::new();
+    while let Some(dir) = pending.pop() {
+        if !directories.insert(dir) {
+            continue;
+        }
+        let Some(node) = bundle.indexes.iter().find(|node| node.dir == dir) else {
+            continue;
+        };
+        for entry in node.sections.iter().flat_map(|section| &section.entries) {
+            match entry.kind {
+                EntryKind::Directory => pending.push(entry.target.as_str()),
+                EntryKind::Concept => {
+                    concepts.insert(entry.target.as_str());
+                }
+            }
+        }
+    }
+    for node in &bundle.indexes {
+        assert!(
+            directories.contains(node.dir.as_str()),
+            "unreachable folder: {}",
+            node.dir
+        );
+    }
+    for concept in &bundle.concepts {
+        assert!(
+            concepts.contains(concept.id.as_str()),
+            "unreachable concept: {}",
+            concept.id
+        );
+    }
+}
+
+#[test]
+fn prose_only_index_keeps_dataset_folder_and_documents_reachable() {
+    let dir = temp_bundle("prose-datasets");
+    let client_index = "# Example client preparation history\n\nStart with the [dataset records](datasets/index.md).\n";
+    let record =
+        "---\ntype: Dataset Preparation Record\ntitle: Preparation October 6\n---\n# Preparation\n";
+    write(
+        &dir,
+        "index.md",
+        "---\nokf_version: \"0.2\"\n---\n# Example Knowledge\n- [Data](data/)\n",
+    );
+    write(
+        &dir,
+        "data/index.md",
+        "# Data\n- [Client preparation history](clients/)\n",
+    );
+    write(
+        &dir,
+        "data/clients/index.md",
+        "# Client preparation history\n- [example_client](example_client/index.md)\n",
+    );
+    write(&dir, "data/clients/example_client/index.md", client_index);
+    write(&dir, "data/clients/example_client/datasets/index.md", "# Example client dataset versions\n- [October 5](sample_v3_20261005.md) - Earlier record.\n");
+    write(
+        &dir,
+        "data/clients/example_client/datasets/sample_v3_20261005.md",
+        "---\ntype: Dataset Preparation Record\n---\n# Earlier record\n",
+    );
+    write(
+        &dir,
+        "data/clients/example_client/datasets/sample_v3_20261006.md",
+        record,
+    );
+
+    let bundle = read_bundle(&dir);
+    assert_fully_navigable(&bundle);
+    let client = bundle
+        .indexes
+        .iter()
+        .find(|node| node.dir == "data/clients/example_client")
+        .unwrap();
+    assert!(!client.synthesized);
+    assert_eq!(
+        client.intro,
+        "Start with the [dataset records](datasets/index.md)."
+    );
+    let datasets = &client.sections[0].entries[0];
+    assert_eq!(datasets.kind, EntryKind::Directory);
+    assert_eq!(datasets.target, "data/clients/example_client/datasets");
+    assert_eq!(datasets.title, "Example client dataset versions");
+    assert_eq!(
+        fs::read_to_string(dir.join("data/clients/example_client/index.md")).unwrap(),
+        client_index
+    );
+    assert_eq!(
+        fs::read_to_string(dir.join("data/clients/example_client/datasets/sample_v3_20261006.md"))
+            .unwrap(),
+        record
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn authored_index_keeps_order_and_labels_without_duplicate_fallbacks() {
+    let dir = temp_bundle("partial-index");
+    write(&dir, "index.md", "# Curated\n\nOrientation.\n\n- [Custom Z](z.md) - Author description.\n- [Custom folder](known/index.md) - Folder description.\n- [Missing](missing.md)\n");
+    write(&dir, "z.md", "---\ntype: Note\ntitle: Zed\n---\n");
+    write(
+        &dir,
+        "a.md",
+        "---\ntype: Note\ntitle: Alpha\ndescription: Discovered description.\n---\n",
+    );
+    // A document and a directory may share the same extensionless target.
+    write(
+        &dir,
+        "known.md",
+        "---\ntype: Note\ntitle: Known document\n---\n",
+    );
+    write(&dir, "known/index.md", "# Known folder\n");
+    write(&dir, "unlisted/index.md", "# Additional folder\n");
+
+    let bundle = read_bundle(&dir);
+    assert_fully_navigable(&bundle);
+    let root = bundle
+        .indexes
+        .iter()
+        .find(|node| node.dir.is_empty())
+        .unwrap();
+    assert_eq!(root.title, "Curated");
+    assert_eq!(root.intro, "Orientation.");
+    assert!(!root.synthesized);
+    assert_eq!(root.sections.len(), 2);
+    let authored = &root.sections[0];
+    assert_eq!(authored.heading, "Curated");
+    assert_eq!(
+        authored
+            .entries
+            .iter()
+            .map(|entry| entry.title.as_str())
+            .collect::<Vec<_>>(),
+        ["Custom Z", "Custom folder", "Missing"]
+    );
+    assert_eq!(authored.entries[0].description, "Author description.");
+    assert_eq!(authored.entries[1].description, "Folder description.");
+    let fallback = &root.sections[1];
+    assert!(fallback.heading.is_empty());
+    assert_eq!(
+        fallback
+            .entries
+            .iter()
+            .map(|entry| (entry.kind, entry.target.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            (EntryKind::Directory, "unlisted"),
+            (EntryKind::Concept, "a"),
+            (EntryKind::Concept, "known")
+        ]
+    );
+    assert_eq!(fallback.entries[1].description, "Discovered description.");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn missing_indexes_connect_the_entire_nested_tree() {
+    let dir = temp_bundle("nested-without-indexes");
+    write(&dir, "a/b/c/deep.md", "---\ntype: Note\n---\n# Deep\n");
+    write(&dir, "a/local.md", "---\ntype: Note\n---\n# Local\n");
+    fs::create_dir_all(dir.join("empty")).unwrap();
+
+    let bundle = read_bundle(&dir);
+    assert_fully_navigable(&bundle);
+    assert!(bundle.indexes.iter().all(|node| node.synthesized));
+    let a = bundle.indexes.iter().find(|node| node.dir == "a").unwrap();
+    assert_eq!(a.sections.len(), 1);
+    assert_eq!(a.sections[0].entries[0].kind, EntryKind::Directory);
+    assert_eq!(a.sections[0].entries[0].target, "a/b");
+    assert_eq!(a.sections[0].entries[1].target, "a/local");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn navigation_fallback_respects_ignores_and_reserved_filenames() {
+    let dir = temp_bundle("ignored-navigation");
+    write(&dir, "index.md", "# Root\n");
+    write(
+        &dir,
+        ".okfignore",
+        "private/**\n!private/public/keep.md\nsecret.md\n",
+    );
+    write(&dir, "private/secret.md", "---\ntype: Note\n---\n");
+    write(&dir, "private/public/keep.md", "---\ntype: Note\n---\n");
+    write(&dir, "private/hidden/index.md", "# Hidden\n");
+    write(&dir, "secret.md", "---\ntype: Note\n---\n");
+    write(&dir, ".hidden/secret.md", "---\ntype: Note\n---\n");
+    write(&dir, "node_modules/secret.md", "---\ntype: Note\n---\n");
+    write(&dir, "private/public/log.md", "# Update Log\n");
+    let bundle = read_bundle(&dir);
+    assert_fully_navigable(&bundle);
+    assert_eq!(
+        bundle
+            .concepts
+            .iter()
+            .map(|concept| concept.id.as_str())
+            .collect::<Vec<_>>(),
+        ["private/public/keep"]
+    );
+    assert_eq!(
+        bundle
+            .indexes
+            .iter()
+            .map(|node| node.dir.as_str())
+            .collect::<Vec<_>>(),
+        ["", "private", "private/public"]
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[cfg(unix)]
+#[test]
+fn navigation_fallback_does_not_follow_symlinks() {
+    let dir = temp_bundle("symlink-navigation");
+    let outside = temp_bundle("symlink-outside");
+    write(&dir, "local.md", "---\ntype: Note\n---\n");
+    write(&outside, "secret.md", "---\ntype: Note\n---\n");
+    std::os::unix::fs::symlink(&outside, dir.join("linked")).unwrap();
+    std::os::unix::fs::symlink(outside.join("secret.md"), dir.join("linked.md")).unwrap();
+
+    let bundle = read_bundle(&dir);
+    assert_fully_navigable(&bundle);
+    assert_eq!(bundle.concepts.len(), 1);
+    assert_eq!(bundle.concepts[0].id, "local");
+    assert_eq!(bundle.indexes.len(), 1);
+    fs::remove_dir_all(&dir).ok();
+    fs::remove_dir_all(&outside).ok();
+}
+
+#[test]
+fn empty_or_garbage_dir_never_panics() {
+    let dir = temp_bundle("garbage");
+    write(
+        &dir,
+        "weird.md",
+        "\u{feff}---\nnot: closed\ntype 没有 colon line\n",
+    );
+    write(
+        &dir,
+        "binary.md",
+        "\x00\x01\x02 not utf clean? still text\n",
+    );
+    // Should not panic and should produce a Bundle.
+    let bundle = read_bundle(&dir);
+    assert!(!bundle.concepts.is_empty());
+
+    // Scanning a candidate (no okf_version) tree should not panic either.
+    let roots = scan_bundles(&dir);
+    let _ = roots; // may be empty or candidate, both fine
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn candidate_root_without_okf_version() {
+    let dir = temp_bundle("candidate");
+    // No root index.md / okf_version, but a typed concept -> candidate.
+    write(&dir, "thing.md", "---\ntype: Note\n---\n# Thing\n");
+    let roots = scan_bundles(&dir);
+    assert!(
+        roots.iter().any(|r| r.confidence == Confidence::Candidate),
+        "a typed concept with no okf_version is a candidate root"
+    );
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn container_of_index_bundles_splits_into_one_root_each() {
+    // A plain container folder (no index.md of its own) holding several bundle
+    // directories that each carry their own index.md but no okf_version — like
+    // GoogleCloudPlatform/knowledge-catalog's okf/bundles. Detection must yield
+    // one candidate PER bundle, not a single merged root over all their concepts.
+    let dir = temp_bundle("container");
+    for b in ["alpha", "beta", "gamma"] {
+        write(&dir, &format!("{b}/index.md"), "# Bundle\n* [x](x.md)\n");
+        write(&dir, &format!("{b}/x.md"), "---\ntype: Note\n---\n# X\n");
+    }
+    let roots = scan_bundles(&dir);
+    assert_eq!(
+        roots.len(),
+        3,
+        "each index.md-bearing subdir is its own bundle"
+    );
+    assert!(roots.iter().all(|r| r.confidence == Confidence::Candidate));
+    let paths: std::collections::BTreeSet<&str> =
+        roots.iter().map(|r| r.rel_path.as_str()).collect();
+    assert_eq!(paths, ["alpha", "beta", "gamma"].into_iter().collect());
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn nested_index_sections_do_not_split_a_single_bundle() {
+    // One candidate bundle whose section subdir also carries an index.md must
+    // stay a single root — the boundary rule stops at the top of the contiguous
+    // index.md chain (here `mybundle`, whose container has none), not every
+    // index.md below it.
+    let dir = temp_bundle("sections");
+    write(&dir, "mybundle/index.md", "# My bundle\n");
+    write(
+        &dir,
+        "mybundle/note.md",
+        "---\ntype: Note\n---\n# Root note\n",
+    );
+    write(&dir, "mybundle/section/index.md", "# Section\n");
+    write(
+        &dir,
+        "mybundle/section/deep.md",
+        "---\ntype: Note\n---\n# Deep\n",
+    );
+    let roots = scan_bundles(&dir);
+    assert_eq!(
+        roots.len(),
+        1,
+        "nested index.md sections don't split the bundle"
+    );
+    assert_eq!(roots[0].rel_path, "mybundle");
+
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn scan_respects_max_depth() {
+    let dir = temp_bundle("depth");
+    // A typed concept nested three directories below the chosen folder.
+    write(&dir, "a/b/c/deep.md", "---\ntype: Note\n---\n# Deep\n");
+
+    // A shallow scan can't reach it; a deeper scan finds it.
+    let shallow = okf_core::scan_bundles_with_depth(&dir, 2);
+    assert!(
+        shallow.is_empty(),
+        "a concept three levels down is out of reach at max_depth=2"
+    );
+    let deep = okf_core::scan_bundles_with_depth(&dir, 8);
+    assert!(
+        deep.iter().any(|r| r.concept_count >= 1),
+        "the nested concept is detected with a deeper scan"
+    );
+
+    fs::remove_dir_all(&dir).ok();
+}

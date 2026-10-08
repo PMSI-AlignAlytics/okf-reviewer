@@ -1,0 +1,62 @@
+/* Window controls for the custom title bar. Stretched to the bar's full
+   height and pulled almost flush to its top-right corner — like native
+   caption buttons, which span the full title-bar height and sit at the
+   literal window edge, so a mouse thrown into the corner reliably lands on
+   Close (Fitts's law). The right inset stops exactly at the resize-handle
+   hotspot (ResizeHandles.css rz-ne, 8px) so the very corner still starts an
+   OS window resize instead of being swallowed by the button. */
+.win-controls {
+  display: inline-flex;
+  align-items: stretch;
+  align-self: stretch;
+  margin: 0 calc(-1 * (var(--space-12) - var(--space-8))) 0 var(--space-4);
+}
+
+.win-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.win-btn:hover {
+  background: var(--ghost-hover);
+  color: var(--text);
+}
+.win-btn:active {
+  background: var(--ghost-active);
+}
+.win-btn:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+.win-close:hover {
+  background: var(--error);
+  color: var(--accent-contrast);
+}
+.win-close:active {
+  background: var(--error-active);
+  color: var(--accent-contrast);
+}
+/* The window has rounded corners except when maximized (.app in styles.css);
+   round Close's outer corner to match so it reads as the frame's actual
+   corner, not a separate inset control floating near it. */
+.app:not([data-maximized="true"]) .win-close {
+  border-top-right-radius: var(--frame-radius);
+}
+
+.win-btn svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  fill: none;
+}
+.win-btn svg rect {
+  stroke: currentColor;
+  fill: none;
+}

@@ -1,0 +1,1371 @@
+/* Concept Reader — co-located styles. Colors come from role variables so the
+   pane tracks light/dark; the type badge color is set inline from the palette. */
+
+.concept-reader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: 100%;
+  margin-inline: auto;
+  padding: var(--space-20) var(--space-24) var(--space-40);
+}
+/* The reading layer, as a layout-breakouts content column: prose keeps the
+   chosen measure (long line lengths hurt reading — the classic 45–75ch band;
+   WCAG 1.4.8 draws the line at 80) and stays centered, while media that
+   *isn't* prose opts out below and uses the full column. */
+.concept-reader > * {
+  width: 100%;
+  max-width: var(--reader-measure);
+  margin-inline: auto;
+}
+/* Breakouts: design-system surfaces are figures, not prose. A live example
+   preview renders a real page — every pixel of width it can get is fidelity —
+   and token tables/swatch grids read better with room. */
+.concept-reader > .examples,
+.concept-reader > .token-viz {
+  max-width: none;
+}
+
+/* Reading aids (dyslexia-friendly): looser letter/word spacing in the body. */
+.concept-reader[data-aids="on"] .body.markdown {
+  letter-spacing: 0.03em;
+  word-spacing: 0.08em;
+}
+
+.reader-empty {
+  padding: var(--space-24);
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Header ------------------------------------------------------------------- */
+.reader-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* Top row: breadcrumb (left) and the "Aa" reading-preferences control (right). */
+.reader-header-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+/* Compact, quiet "Aa" trigger — it sits with the content, not in the chrome. */
+.reader-prefs-btn {
+  flex: 0 0 auto;
+  padding: var(--space-4) var(--space-8);
+  color: var(--text-dim);
+}
+.reader-prefs-btn:hover {
+  color: var(--text);
+}
+
+/* Breadcrumb: each ancestor opens its folder home. */
+.reader-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.reader-crumbs .crumb {
+  white-space: nowrap;
+}
+.reader-crumbs .crumb + .crumb::before {
+  content: "/";
+  margin: 0 var(--space-6);
+  opacity: 0.6;
+}
+.reader-crumb-link {
+  min-height: 32px;
+  padding: var(--space-4) 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-underline-offset: 0.2em;
+}
+.reader-crumb-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.reader-crumb-link:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* One quiet meta line above the title — plain text with · separators instead
+   of a row of pill chips (three competing pill treatments read as noise). The
+   type keeps its palette color as a small dot, the same encoding the Filter
+   lens and graph use; everything else is dim text. */
+.reader-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-8);
+  row-gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.reader-labels > * + *::before {
+  content: "·";
+  margin-right: var(--space-8);
+  opacity: 0.6;
+}
+.type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--text);
+  font-weight: 500;
+}
+.type-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+/* Lifecycle status (ODSF): quiet by default — colored text only to flag the
+   exception, experimental and (especially) deprecated. Stable is the expected
+   baseline and reads as plain text. */
+.status-label {
+  text-transform: capitalize;
+}
+.status-label[data-status="experimental"] {
+  color: var(--warn);
+  font-weight: 500;
+}
+.status-label[data-status="deprecated"] {
+  color: var(--error);
+  font-weight: 500;
+}
+
+.concept-reader h1 {
+  margin: 0;
+  font-size: calc(var(--fs-xl) * var(--reader-scale, 1));
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.concept-reader .desc {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: calc(var(--fs-sm) * var(--reader-scale, 1));
+}
+
+.reliability-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+  padding: var(--space-12);
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+}
+
+.reliability-notice[data-state="current"] {
+  border-inline-start-color: var(--ok);
+}
+
+.reliability-notice[data-state="retired"],
+.reliability-notice[data-state="superseded"],
+.reliability-notice[data-state="contradicted"] {
+  border-inline-start-color: var(--error);
+}
+
+.reliability-notice header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-8);
+  color: var(--text);
+}
+
+.reliability-notice header span {
+  color: var(--text-dim);
+}
+
+.reliability-notice ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-16);
+  margin: 0;
+  padding-inline-start: var(--space-16);
+}
+
+.reliability-notice p {
+  margin: 0;
+}
+
+.reliability-notice__diagnostic {
+  color: var(--warn);
+}
+
+/* Tags as quiet #text — they are labels, not buttons, so no pill chrome
+   suggesting a click that goes nowhere. */
+.tag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-10);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.tag::before {
+  content: "#";
+  opacity: 0.55;
+}
+
+/* Label/value pairs as one shared grid: the label column hugs the longest
+   term so every value starts at the same X instead of wherever its own label
+   ended. display:contents lifts dt/dd out of the row wrappers into the grid. */
+.reader-meta {
+  margin: var(--space-4) 0 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-4) var(--space-8);
+  font-size: var(--fs-xs);
+}
+
+.reader-meta .meta-row {
+  display: contents;
+}
+
+.reader-meta dt {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
+.reader-meta dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reader-header-actions,
+.reader-resource-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.reader-header-actions {
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+/* Controls that share a job sit tighter to each other than to the next group,
+   so the row reads as two sets rather than one undifferentiated queue. */
+.reader-action-group {
+  display: inline-flex;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.reader-action-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+
+/* The divider earns nothing once the row wraps. Keyed to the READER PANE, not
+   the window: in the split layout the pane can be narrow while the window is
+   wide, and the rest of this file already sizes off the same container. */
+@container (max-width: 640px) {
+  .reader-action-divider {
+    display: none;
+  }
+}
+
+.reader-okf-task,
+.reader-speed-read,
+.reader-resource-agent {
+  display: inline-flex;
+  gap: var(--space-6);
+  align-items: center;
+  min-height: 28px;
+  padding: var(--space-4) var(--space-8);
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.reader-okf-task:hover,
+.reader-speed-read:hover,
+.reader-resource-agent:hover {
+  color: var(--text);
+  background: var(--ghost-hover);
+}
+
+.reader-resource-agent {
+  min-width: 28px;
+  justify-content: center;
+  padding-inline: var(--space-6);
+}
+
+.concept-id {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  padding: 1px var(--space-6);
+  border-radius: var(--radius-sm);
+}
+
+/* A button styled as a link — used for the resource so we can route it through
+   actions.openExternal instead of a raw <a href>. */
+/* .link-btn moved to shared/styles/chrome.css: the Sidebar, the type filters
+   and the trust panel use it too, and a shared control cannot live in one
+   feature's stylesheet. */
+
+/* Rendered markdown body --------------------------------------------------- */
+/* Override the stub's monospace <pre> look: this is real rendered prose now. */
+.concept-reader .body.markdown {
+  font-family: var(--reader-font);
+  /* Comfortable reading base (16px) that scales with the reader text-size
+     control; headings and code use em units so they ride the scaled base. */
+  font-size: calc(var(--fs-md) * var(--reader-scale, 1));
+  line-height: var(--reader-leading);
+  white-space: normal;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  overflow-x: visible;
+  color: var(--text);
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  line-height: 1.3;
+  margin: 1.6em 0 0.5em;
+  font-weight: 600;
+}
+/* em-relative so they scale with the reader text-size control via the
+   .body.markdown base font-size; a real, distinct hierarchy (h3 ≠ h4). */
+.markdown h1 { font-size: 1.6em; letter-spacing: -0.01em; }
+.markdown h2 { font-size: 1.3em; letter-spacing: -0.01em; }
+.markdown h3 { font-size: 1.12em; }
+/* Same size as body, but heavier and in full text color. It used to be dimmed,
+   which made a heading quieter than the paragraph it introduces and inverted
+   the hierarchy; the weight step from 400 to 600 is the distinction. */
+.markdown h4 { font-size: 1em; letter-spacing: 0.01em; }
+.markdown p { margin: 0.9em 0; }
+.markdown ul,
+.markdown ol { margin: 0.8em 0; padding-left: 1.5em; }
+.markdown li { margin: 0.3em 0; }
+.markdown li::marker { color: var(--text-dim); }
+
+.markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: from-font;
+  cursor: pointer;
+}
+.markdown a:hover {
+  text-decoration-thickness: 2px;
+}
+/* Unresolved intra-bundle link: reads as broken, not a live link. A dashed
+   underline plus a trailing prohibited marker are non-color affordances (per
+   WCAG and the tolerant-consumer principle), at a contrast-safe dim with a
+   not-allowed cursor. The href is named in the hover title. */
+.markdown a[data-link="unresolved"] {
+  color: var(--text-dim);
+  text-decoration: underline dashed;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 2px;
+  cursor: not-allowed;
+}
+.markdown a[data-link="unresolved"]:hover {
+  text-decoration: underline dashed;
+}
+.markdown a[data-link="unresolved"]::after {
+  content: "⊘";
+  margin-left: 0.15em;
+  font-size: 0.8em;
+}
+/* External link: a clear outbound arrow, in the link color, so "leaves the app"
+   reads at a glance (the arrow, not color, is the cue). Paired with a
+   visually-hidden "opens in browser" and an "Opens in your browser: URL" title. */
+.markdown a[data-link="external"]::after,
+.markdown a[data-link="document"]::after {
+  content: "↗";
+  display: inline-block;
+  margin-left: 0.18em;
+  font-size: 0.82em;
+  color: var(--accent);
+  vertical-align: 0.06em;
+}
+.markdown a[data-link="outside-scope"] {
+  color: var(--text-dim);
+  text-decoration: underline dotted;
+  cursor: not-allowed;
+}
+/* A companion-asset link (an ODSF example/stylesheet) renders as a live preview
+   above; mark it with a small frame glyph so it reads as "see the example", not
+   a broken link. */
+.markdown a[data-link="asset"]::after {
+  content: " ▣";
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+
+/* A color value — in inline code (`#1f883d`) or in plain prose (`#d1d9e0`) —
+   gets a small swatch so design-system role tables and prose show their colors
+   inline. `.color-token` keeps the chip and the hex on one line. */
+.markdown .color-chip {
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-right: 0.4em;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  vertical-align: baseline;
+}
+.markdown .color-token {
+  white-space: nowrap;
+}
+
+/* Body images — inlined local bundle images. Click to open the spotlight. */
+.markdown img.md-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  display: block;
+  margin: var(--space-12) 0;
+}
+/* Zoomable local image: a bare button wrapper so the spotlight opens by
+   keyboard (Enter/Space), not just a mouse click. Owns the block spacing so the
+   inner image keeps its border/radius without doubling margins. */
+.markdown .md-img-zoom {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: var(--space-12) 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.markdown .md-img-zoom > img.md-img {
+  margin: 0;
+  cursor: inherit;
+}
+.markdown .md-img-zoom:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+/* A remote image is not auto-fetched (offline); this opens it in the browser. */
+.markdown .md-img-remote {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: var(--space-6) var(--space-10);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.markdown .md-img-remote:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.markdown .md-img-broken {
+  display: inline-block;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-8);
+}
+
+/* Syntax-highlighted code (Shiki dual theme). Shiki emits per-token
+   --shiki-light / --shiki-dark CSS vars (defaultColor:false); we pick the set
+   that matches the app's resolved theme. The surrounding .markdown pre styles
+   (border, radius, padding, copy button) still apply.
+
+   We take Shiki's TOKEN colors and not its background. A syntax theme ships a
+   surface of its own, and it is never one of ours: it made the code block the
+   only element in the app that contradicted the depth order, in both themes and
+   in opposite directions. Light painted #fff inside a #ffffff reader, so the
+   recessed well collapsed to a bare 1px border. Dark painted #24292e — lighter
+   than the reader pane itself and a near-match for --bg-overlay — so a code
+   block read as a popover floating above the prose instead of a well cut into
+   it. Leaving the background to --bg-sunken (.markdown pre) puts it back. */
+.markdown pre.shiki,
+.markdown pre.shiki span {
+  color: var(--shiki-light);
+}
+:root[data-theme="dark"] .markdown pre.shiki,
+:root[data-theme="dark"] .markdown pre.shiki span {
+  color: var(--shiki-dark);
+}
+
+/* Image spotlight overlay. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-32);
+  background: var(--scrim);
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: min(calc(var(--app-viewport-width, 100vw) * 0.92), calc(var(--app-viewport-width, 100vw) - 2 * var(--space-32)));
+  max-height: min(calc(var(--app-viewport-height, 100vh) * 0.92), calc(var(--app-viewport-height, 100vh) - 2 * var(--space-32)));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: var(--bg);
+}
+.lightbox-close {
+  position: absolute;
+  top: var(--space-16);
+  right: var(--space-20);
+  width: 40px;
+  height: 40px;
+  font-size: var(--fs-xl);
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+}
+.lightbox-close:hover {
+  border-color: var(--accent);
+}
+
+.markdown code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  background: var(--bg-sunken);
+  padding: 1px var(--space-4);
+  border-radius: var(--radius-sm);
+}
+/* A code block is marked by its monospace face and its sunken surface. It used
+   to also carry a 3px accent rule down its left edge, which cost twice: the
+   accent means "you can act on this" everywhere else in the app, and a code
+   block is not actionable; and it made code a visual twin of a NOTE callout,
+   which is a bordered box with a 3px blue left rule and a tinted fill. In a
+   technical bundle the two sit next to each other constantly.
+   The colored left rule now belongs to callouts alone, where the color carries
+   severity. See --canvas-text-halo's neighbours in styles.css for the same
+   rule applied to the graph. */
+.markdown pre {
+  position: relative;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-12) var(--space-16);
+  /* `overflow-x: auto` alone forces the used overflow-y to `auto` too (CSS
+     Overflow: a non-visible value on one axis promotes the other), so a box
+     one sub-pixel taller than its content grows a vertical scrollbar nobody
+     asked for. Naming both axes keeps the horizontal scroll and drops the
+     phantom. WebKitGTK under fractional scaling produces that sub-pixel
+     routinely; see the same defense on html/body in styles.css. */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.markdown pre code {
+  background: none;
+  padding: 0;
+  /* em-relative so code rides the reader scale. */
+  font-size: 0.875em;
+}
+
+/* Copy affordance, baked into each code block's HTML (processBody). */
+.code-copy {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: var(--space-2) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.markdown pre:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+.code-copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Mermaid diagrams (```mermaid fences), rendered in processBody. Each figure
+   holds a light and a dark render; data-theme picks one (Mermaid bakes theme
+   colors into the SVG, so the string can't be re-themed in place). */
+.markdown .mermaid-diagram {
+  margin: 1em 0;
+  /* A wide diagram scrolls in place rather than breaking the measure; the
+     explicit overflow-y stops the promotion described on `.markdown pre`. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+.markdown .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.markdown .mermaid-dark {
+  display: none;
+}
+:root[data-theme="dark"] .markdown .mermaid-light {
+  display: none;
+}
+:root[data-theme="dark"] .markdown .mermaid-dark {
+  display: inline;
+}
+
+/* GFM alert callouts (> [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION]). */
+/* Three signals for one thing, down from four: the colored left rule, a faint
+   wash of the same hue, and the colored title. The outer 1px border is gone.
+   With it, a callout carried a box AND a rule AND a fill AND a colored
+   heading, which is why an amber Warning read as a slab dropped into the
+   prose rather than as an aside within it. */
+.markdown .callout {
+  margin: 1em 0;
+  padding: var(--space-10) var(--space-16);
+  border-left: 3px solid var(--c, var(--accent));
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--c, var(--accent)) 7%, transparent);
+}
+.markdown .callout-title {
+  margin: 0 0 var(--space-4);
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--c, var(--accent));
+}
+.markdown .callout-body > :first-child {
+  margin-top: 0;
+}
+.markdown .callout-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown .callout-note,
+.markdown .callout-important {
+  --c: var(--accent);
+}
+.markdown .callout-tip {
+  --c: var(--ok);
+}
+.markdown .callout-warning {
+  --c: var(--warn);
+}
+.markdown .callout-caution {
+  --c: var(--error);
+}
+
+/* Embedded-HTML elements (authors may write raw HTML in a body — see
+   docs/features/concept-reader.md). Themed so they read as native, both modes. */
+.markdown kbd {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 1px var(--space-4);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.markdown mark {
+  /* The browser default (opaque yellow, inherited dark text) breaks in dark
+     mode; a warn-tinted wash keeps the text color and works in both themes. */
+  background: color-mix(in srgb, var(--warn) 28%, transparent);
+  color: inherit;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* Current-side Git changes use the contrast-tested accent as ink, never a
+   background wash. Authored <mark> remains the semantic warn highlight above. */
+.markdown .git-diff-change,
+.markdown .git-diff-change-block {
+  color: var(--accent);
+}
+.markdown .git-diff-change,
+.git-diff-legend-sample {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+.markdown .git-diff-change-block {
+  padding-inline-start: var(--space-12);
+  border-inline-start: 1px dashed currentColor;
+}
+.markdown .git-diff-change-block::before {
+  content: "Changed block";
+  display: block;
+  font-family: var(--ui);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+.git-diff-legend {
+  margin: var(--space-4) 0 0;
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+/* A passage that replaced earlier text opens its comparison on click. While
+   the comparison is open, the passage is underlined so the pair reads as one. */
+.markdown .git-diff-change.has-previous,
+.markdown .git-diff-change-block.has-previous {
+  cursor: pointer;
+}
+/* An inline box covers only its glyphs, so the leading between lines belongs to
+   the paragraph: a click there missed the passage and crossing it flickered the
+   preview. Vertical padding on an inline box widens its hit area without moving
+   a line; half the reader's leading fills the gap at every line spacing. */
+.markdown .git-diff-change.has-previous {
+  padding-block: calc((var(--reader-leading) - 1.2) * 0.5em);
+}
+.markdown .git-diff-change.is-comparing {
+  text-decoration-style: solid;
+  text-underline-offset: 0.2em;
+}
+
+.markdown .git-diff-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-4) 0 var(--space-8);
+  font-family: var(--ui);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.markdown .git-diff-compare-toggle {
+  min-height: 32px;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.markdown .git-diff-compare-toggle:hover {
+  background: var(--ghost-hover);
+  border-color: var(--accent);
+}
+.markdown .git-diff-compare-toggle[aria-expanded="true"] {
+  background: var(--el-active);
+}
+.markdown .git-diff-compare-toggle:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.markdown .git-diff-change:focus-visible,
+.markdown .git-diff-change-block:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Syntax-sensitive blocks survive as wrappers through the lazy enhancement
+   passes. Override renderer-owned ink so code, math and diagram text still
+   carry the same diff signal without tinting the block surface. */
+.markdown .git-diff-change-block pre.shiki,
+.markdown .git-diff-change-block pre.shiki span,
+.markdown .git-diff-change-block blockquote,
+.markdown .git-diff-change-block .callout-title,
+.markdown .git-diff-change-block .math {
+  color: var(--accent) !important;
+}
+.markdown .git-diff-change-block .mermaid-diagram text {
+  fill: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+/* The in-place comparison sits in the document flow directly below the
+   changed block, so a long earlier version scrolls with the page instead of
+   inside a box. Removed and added words share the preview's styles
+   (GitDiffTooltip.css). */
+.markdown .git-diff-compare {
+  margin: var(--space-8) 0 1em;
+  padding: var(--space-8) var(--space-12) var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+.markdown .git-diff-compare:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.markdown .git-diff-compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6) var(--space-8);
+  margin-bottom: var(--space-8);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+  color: var(--text-dim);
+}
+.markdown .git-diff-compare-title {
+  font-weight: 600;
+}
+.markdown .git-diff-compare-views {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.markdown .git-diff-compare-view,
+.markdown .git-diff-compare-close {
+  min-height: 24px;
+  padding: var(--space-2) var(--space-8);
+  font: inherit;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.markdown .git-diff-compare-view + .git-diff-compare-view {
+  border-left: 1px solid var(--border);
+}
+.markdown .git-diff-compare-view[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--el-active);
+}
+.markdown .git-diff-compare-close {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+.markdown .git-diff-compare-view:hover,
+.markdown .git-diff-compare-close:hover {
+  color: var(--text);
+}
+.markdown .git-diff-compare-close:hover {
+  border-color: var(--accent);
+}
+.markdown .git-diff-compare-view:focus-visible,
+.markdown .git-diff-compare-close:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset-inset);
+}
+.markdown .git-diff-compare-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.markdown .git-diff-compare-note {
+  margin-top: var(--space-6);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.markdown details {
+  margin: 1em 0;
+  padding: var(--space-10) var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.markdown summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.markdown details[open] > summary {
+  margin-bottom: var(--space-8);
+}
+.markdown details > :last-child {
+  margin-bottom: 0;
+}
+
+/* Task lists (- [ ] / - [x]): the checkbox replaces the bullet. */
+.markdown li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+.markdown li > input[type="checkbox"] {
+  margin: 0 var(--space-6) 0 calc(-1 * var(--space-16));
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
+/* Definition lists (Term / `: definition`). */
+.markdown dl {
+  margin: 0.8em 0;
+}
+.markdown dt {
+  font-weight: 600;
+  margin-top: var(--space-8);
+}
+.markdown dd {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-16);
+  color: var(--text-dim);
+}
+
+/* Footnotes ([^1]) — a quiet end-of-body section; refs/backrefs jump in-page. */
+.markdown .footnotes {
+  margin-top: var(--space-24);
+  border-top: 1px solid var(--border);
+  font-size: 0.88em;
+  color: var(--text-dim);
+}
+.markdown .footnotes h2 {
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.markdown [data-footnote-ref] {
+  /* Underlined like every link (WCAG 1.4.1); just breathing room in the sup. */
+  padding: 0 var(--space-2);
+}
+
+.markdown blockquote {
+  margin: 0.8em 0;
+  padding: var(--space-2) var(--space-16);
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+
+.markdown .markdown-table-scroll {
+  width: 100%;
+  margin: 1em 0;
+  /* Explicit overflow-y: see the note on `.markdown pre`. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+}
+.markdown table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  margin: 0;
+  font-size: var(--fs-sm);
+  table-layout: auto;
+}
+/* Rules between rows, not a box around every cell. A full grid draws one border
+   per cell edge, so a 3x2 table spends 17 rules separating 6 values and reads
+   as a spreadsheet import rather than as part of the prose. Horizontal rules
+   alone carry the row structure, and the eye follows a row without help; the
+   header rule is the one place a heavier line earns its keep. Matches the
+   hairline language the rest of the app uses for grouped rows. */
+.markdown th,
+.markdown td {
+  border: 0;
+  border-bottom: 1px solid var(--border-variant);
+  padding: var(--space-6) var(--space-10);
+  /* Cells run to the column edges, but the first sits flush with the prose. */
+  padding-left: 0;
+  padding-right: var(--space-16);
+  max-width: min(48ch, calc(var(--app-viewport-width, 100vw) * 0.7));
+  text-align: left;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+  /* `anywhere` contributes single characters to min-content sizing and lets
+     automatic table layout crush a column. `break-word` preserves whole-word
+     column contributions; the scroll wrapper catches true token overflow. */
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+/* The header is a label row: no fill, a heavier rule under it, and the same
+   mono-uppercase register the app uses for column labels everywhere else. */
+.markdown th {
+  background: none;
+  border-bottom: 1px solid var(--text-dim);
+  font-size: 0.92em;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+.markdown tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.markdown tbody tr:hover {
+  background: var(--ghost-hover);
+}
+
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.4em 0;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Layout: reading column + right context rail ----------------------------- */
+.reader-shell {
+  /* Reading-layer variables — the content-scoped reading layer (not page zoom),
+     tunable via the "Aa" control and persisted in settings (Reader.tsx sets
+     them inline here). On the shell, not the article, so the rail shares them.
+     Prose surfaces multiply their font-size by --reader-scale via calc(). */
+  --reader-scale: 1;
+  --reader-measure: 72ch;
+  --reader-leading: 1.7;
+  --reader-font: var(--ui);
+  --reader-rail-w: 300px;
+  /* The shell's outer cap. Sized for big displays: the prose column stays at
+     its measure regardless, so the extra width all goes to the breakout
+     surfaces (live examples, token tables) and the rail — the reason this is
+     wider than a prose-only cap would be. */
+  --reader-max: 1480px;
+  max-width: var(--reader-max);
+  margin-inline: auto;
+}
+.reader-shell[data-rail="side"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--reader-rail-w);
+  gap: var(--space-32);
+  align-items: start;
+}
+/* Grid items refuse to shrink below their min-content by default; without
+   this, wide unbreakable content (a token table) overflows the prose column
+   and paints under the rail instead of the column just getting narrower. */
+.reader-shell[data-rail="side"] .reader-main {
+  min-width: 0;
+}
+
+/* Default rail = stacked below the article (split mode, or a narrow pane).
+   Balanced multi-columns rather than a row-major grid: modules differ wildly
+   in height (six Related rows beside two Details rows), and grid rows would
+   leave a void under every short module. Columns pack each module directly
+   under the previous one and the browser balances the column heights. */
+.reader-rail {
+  columns: 2 240px;
+  column-gap: var(--space-32);
+  max-width: var(--reader-measure);
+  margin-inline: auto;
+  padding: var(--space-24) var(--space-24) var(--space-40);
+  border-top: 1px solid var(--border);
+}
+.reader-rail > * {
+  break-inside: avoid;
+  margin: 0 0 var(--space-24);
+}
+/* Side rail = a sticky single column beside the prose. */
+.reader-shell[data-rail="side"] .reader-rail {
+  columns: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  position: sticky;
+  top: var(--space-16);
+  max-height: calc(var(--app-viewport-height, 100vh) - var(--space-40));
+  overflow: auto;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-20) var(--space-8) var(--space-40) 0;
+  border-top: 0;
+}
+.reader-shell[data-rail="side"] .reader-rail > * {
+  margin: 0;
+}
+/* Too narrow for two columns → collapse the side rail to the stacked form.
+   The threshold tracks the chosen measure (data-measure, from the "Aa" width
+   preference): 900px fits the default 72ch column beside the rail; the Wide
+   88ch column needs ~1040px before the rail stops crowding the prose. */
+@container (max-width: 900px) {
+  .reader-shell[data-rail="side"] {
+    display: block;
+  }
+  .reader-shell[data-rail="side"] .reader-rail {
+    columns: 2 240px;
+    column-gap: var(--space-32);
+    display: block;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    max-width: var(--reader-measure);
+    margin-inline: auto;
+    padding: var(--space-24) var(--space-24) var(--space-40);
+    border-top: 1px solid var(--border);
+  }
+  .reader-shell[data-rail="side"] .reader-rail > * {
+    break-inside: avoid;
+    margin: 0 0 var(--space-24);
+  }
+}
+@container (max-width: 1040px) {
+  .reader-shell[data-measure="88"][data-rail="side"] {
+    display: block;
+  }
+  .reader-shell[data-measure="88"][data-rail="side"] .reader-rail {
+    columns: 2 240px;
+    column-gap: var(--space-32);
+    display: block;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    max-width: var(--reader-measure);
+    margin-inline: auto;
+    padding: var(--space-24) var(--space-24) var(--space-40);
+    border-top: 1px solid var(--border);
+  }
+  .reader-shell[data-measure="88"][data-rail="side"] .reader-rail > * {
+    break-inside: avoid;
+    margin: 0 0 var(--space-24);
+  }
+}
+
+/* The outline stays available in a compact header popover when stacked. */
+.rail-outline {
+  display: none;
+}
+.reader-compact-outline {
+  display: block;
+}
+.reader-shell[data-rail="side"] .rail-outline {
+  display: block;
+}
+.reader-shell[data-rail="side"] .reader-compact-outline {
+  display: none;
+}
+@container (max-width: 900px) {
+  .reader-shell[data-rail="side"] .rail-outline {
+    display: none;
+  }
+  .reader-shell[data-rail="side"] .reader-compact-outline {
+    display: block;
+  }
+}
+@container (max-width: 1040px) {
+  .reader-shell[data-measure="88"][data-rail="side"] .rail-outline {
+    display: none;
+  }
+  .reader-shell[data-measure="88"][data-rail="side"] .reader-compact-outline {
+    display: block;
+  }
+}
+
+.reader-outline-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 32px;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.reader-outline-trigger:hover {
+  background: var(--ghost-hover);
+  color: var(--text);
+}
+.reader-outline-trigger:focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.reader-outline-popup {
+  width: min(22rem, calc(var(--app-viewport-width, 100vw) - var(--space-32)));
+  max-height: min(calc(var(--app-viewport-height, 100vh) * 0.6), var(--available-height));
+  overflow: auto;
+}
+
+/* Rail modules ------------------------------------------------------------- */
+.rail-module {
+  min-width: 0;
+}
+.rail-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin: 0 0 var(--space-8);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.rail-count {
+  padding: 0 var(--space-6);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border-radius: 999px;
+}
+
+.rel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* On this page (outline) */
+.outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.outline-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: var(--space-2) var(--space-8);
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.outline-item.lvl-3 .outline-link {
+  padding-left: var(--space-20);
+}
+.outline-link:hover {
+  color: var(--text);
+}
+.outline-item.is-active .outline-link {
+  color: var(--text);
+  border-left-color: var(--accent);
+}
+.outline-link:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+
+/* Relation rows read as native list rows, not web hyperlinks: normal text color
+   with a token hover fill. Genuine external links keep the .link-btn link look
+   (accent + underline); these intra-bundle navigations do not. */
+.rel-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.rel-link:hover {
+  background: var(--ghost-hover);
+}
+.rel-link:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset-inset);
+}
+
+.typed-rel-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.typed-rel-link {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+button.typed-rel-link {
+  cursor: pointer;
+}
+
+button.typed-rel-link:hover {
+  background: var(--ghost-hover);
+}
+
+.typed-rel-link.is-missing {
+  border-style: dashed;
+}
+
+.typed-rel-kind,
+.typed-rel-flags {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+}
+
+.typed-rel-kind,
+.typed-rel-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typed-rel-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.typed-rel-flags small {
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.typed-rel-state {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+}
+
+.typed-rel-state.is-warning {
+  color: var(--warn);
+}
+
+.typed-relationships-story {
+  width: min(292px, calc(var(--app-viewport-width, 100vw) - var(--space-24)));
+  padding: var(--space-12);
+}
+
+.broken-list .broken-link {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  text-decoration: line-through;
+  cursor: default;
+  overflow-wrap: anywhere;
+}

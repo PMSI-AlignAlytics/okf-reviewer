@@ -1,0 +1,127 @@
+import eslint from "@eslint/js";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactHooks from "eslint-plugin-react-hooks";
+import testingLibrary from "eslint-plugin-testing-library";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import vitest from "@vitest/eslint-plugin";
+
+// Strict, type-aware lint stack mirroring the homepage project, adapted from
+// Next.js to this Vite + React 19 (React Compiler) + Tauri app:
+//   - @eslint/js recommended
+//   - typescript-eslint strict + stylistic, *type-checked* (needs type info)
+//   - the full React Compiler ruleset (eslint-plugin-react-hooks v7) at error
+//   - eslint-config-prettier last, so formatting is a formatter's job
+export default tseslint.config(
+  {
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "src-tauri/**",
+      "target/**",
+      "scripts/**",
+      "coverage/**",
+      // Separate sub-project, with its own tooling and not in this tsconfig.
+      "design-system/**",
+      "eslint.config.mjs",
+      "vite.config.ts",
+      // Storybook tooling config (typechecked via the root tsconfig).
+      ".storybook/**",
+    ],
+  },
+  eslint.configs.recommended,
+  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
+  jsxA11y.flatConfigs.recommended,
+  eslintConfigPrettier,
+  {
+    plugins: { "react-hooks": reactHooks },
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // React Compiler recommended baseline for this plugin version…
+      ...reactHooks.configs["recommended-latest"].rules,
+
+      // The one strict rule homepage turns off — more noise than signal here.
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      // Numbers in template literals are safe and idiomatic (`${count} items`).
+      "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+      // A focusable `separator` is a valid window-splitter widget (WAI-ARIA APG).
+      // A focusable named `region` is how an overflow container is reached
+      // without a mouse — the treatment the reader already gives its wide
+      // tables and code blocks (markdown.ts `containTables`); a scroll area the
+      // keyboard cannot enter is content the keyboard cannot read.
+      "jsx-a11y/no-noninteractive-tabindex": [
+        "error",
+        { tags: [], roles: ["tabpanel", "separator", "region"], allowExpressionValues: true },
+      ],
+      // Base UI's headless controls are the real (accessible) control inside a label.
+      "jsx-a11y/label-has-associated-control": [
+        "error",
+        { controlComponents: ["Checkbox.Root"] },
+      ],
+
+      // Full React Compiler / hooks ruleset at error (parity with homepage,
+      // mapped to eslint-plugin-react-hooks v7.1 rule names — e.g. the old
+      // `automatic-effect-dependencies` is now `exhaustive-effect-dependencies`).
+      "react-hooks/exhaustive-deps": "error",
+      "react-hooks/incompatible-library": "error",
+      "react-hooks/unsupported-syntax": "error",
+      "react-hooks/todo": "error",
+      "react-hooks/syntax": "error",
+      "react-hooks/hooks": "error",
+      "react-hooks/capitalized-calls": "error",
+      "react-hooks/rule-suppression": "error",
+      "react-hooks/no-deriving-state-in-effects": "error",
+      "react-hooks/void-use-memo": "error",
+      "react-hooks/exhaustive-effect-dependencies": "error",
+      "react-hooks/memoized-effect-dependencies": "error",
+    },
+  },
+  {
+    // Test files: vitest globals, and relax type-aware rules that fight common
+    // testing patterns (non-null assertions, mocks typed as any).
+    files: ["**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    plugins: {
+      vitest,
+      "testing-library": testingLibrary,
+    },
+    languageOptions: {
+      globals: { ...globals.vitest },
+    },
+    rules: {
+      ...vitest.configs.recommended.rules,
+      ...testingLibrary.configs["flat/react"].rules,
+      "vitest/expect-expect": [
+        "error",
+        { assertFunctionNames: ["expect", "expectNoViolations"] },
+      ],
+      "vitest/no-disabled-tests": "error",
+      "vitest/no-focused-tests": "error",
+      "vitest/no-conditional-expect": "error",
+      // These rules reject deliberate DOM geometry checks and mid-test
+      // remounts used by the app-shell integration lane.
+      "testing-library/no-container": "off",
+      "testing-library/no-manual-cleanup": "off",
+      "testing-library/no-node-access": "off",
+      "testing-library/render-result-naming-convention": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/unbound-method": "off",
+      // Test doubles / DOM mocks are routinely empty no-ops.
+      "@typescript-eslint/no-empty-function": "off",
+      // Test setup polyfills APIs the DOM lib types claim always exist but
+      // jsdom lacks (ResizeObserver, getAnimations, matchMedia) — the guards
+      // are load-bearing at runtime even though TS thinks them redundant.
+      "@typescript-eslint/no-unnecessary-condition": "off",
+    },
+  },
+);

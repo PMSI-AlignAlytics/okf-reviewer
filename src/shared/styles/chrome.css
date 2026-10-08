@@ -1,0 +1,211 @@
+/* Shared chrome primitives: buttons, badges, overlays, and dialogs used across
+   the TopBar, Command Palette, Validation Panel, Settings, and Empty states.
+   Color comes only from role variables; spacing/type/radius from scale tokens. */
+
+/* --- Buttons --- */
+.btn {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  line-height: var(--lh-tight);
+}
+.btn:hover:not(:disabled) {
+  background: var(--el-hover);
+  border-color: var(--border-strong);
+}
+.btn:active:not(:disabled) {
+  background: var(--el-active);
+}
+.btn:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn.primary:active:not(:disabled) {
+  background: var(--accent-active);
+}
+.btn.danger {
+  border-color: transparent;
+  background: var(--error);
+  color: var(--accent-contrast);
+}
+.btn.danger:hover:not(:disabled) {
+  background: var(--error-hover);
+}
+.btn.danger:active:not(:disabled) {
+  background: var(--error-active);
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn.ghost:hover:not(:disabled) {
+  background: var(--ghost-hover);
+}
+.btn.icon {
+  padding: var(--space-6) var(--space-8);
+}
+
+/* --- Badges --- */
+.badge {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: var(--space-4) var(--space-10);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  cursor: pointer;
+  line-height: var(--lh-tight);
+}
+.badge:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+/* A status badge keeps its own role color on hover — only the edge firms up,
+   so the ok/warn/error reading never changes under the pointer. */
+.badge.ok:hover { color: var(--ok); border-color: var(--ok); }
+.badge.warn:hover { color: var(--warn); border-color: var(--warn); }
+.badge.error:hover { color: var(--error); border-color: var(--error); }
+.badge.ok {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.badge.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.badge.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* --- Key caps and key hints --- */
+/* One cap, everywhere a key is named. There were four near-identical
+   definitions (.sc-kbd, .switcher-kbd, .topbar-search-kbd, and a bare <kbd>
+   with no styling at all in the empty state) that had drifted apart on ink and
+   background, plus the launcher footer, which rendered its keys as plain text
+   and so read as a fifth thing again. */
+.kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: var(--space-2) var(--space-6);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  /* A cap carries the answer someone is looking for; --text-dim left the key
+     quieter than the words describing it. */
+  color: var(--text);
+}
+
+/* Two roles, and the difference is whether the key is being TAUGHT or is simply
+   live right now.
+     .kbd        a boxed cap. For naming a key someone should learn or press:
+                 the shortcuts sheet, an empty-state call to action, the search
+                 field's Ctrl-K advertisement.
+     .hint-key   an unboxed glyph beside its verb. For a surface's own footer,
+                 where the keys are ambient guidance for the thing already in
+                 front of you. A row of boxed caps down there reads as a second
+                 toolbar competing with the results; unboxed, it recedes. */
+.kbd-hint {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  color: var(--text-dim);
+}
+.hint-key {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+/* A row of them, for a surface's footer. */
+.kbd-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-16);
+  font-size: var(--fs-xs);
+}
+
+/* --- Markdown permalink --- */
+/* Emitted by shared/render/markdown.ts for every h2-h6, so it appears in the
+   reader and the log alike. It lived in Reader.css,
+   which the thread view does not load, so there it rendered as a bare 12px
+   glyph. A quiet "#" revealed on hover or focus, scrolling in place. */
+a.heading-anchor {
+  /* Shown on hover, but still a target once shown: a 12px-wide glyph is under
+     the floor, so the link claims the space around it. */
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  margin-left: var(--space-2);
+  color: var(--text-dim);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+}
+:is(h2, h3, h4, h5, h6):hover .heading-anchor,
+a.heading-anchor:focus-visible {
+  opacity: 1;
+}
+a.heading-anchor:hover {
+  color: var(--accent);
+}
+
+/* --- Overlays (modal scrim) --- */
+.chrome-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 50;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+/* A button that reads as a link. Shared, because the Sidebar, the type filters,
+   the Reader and the trust panel all need it — and in a webview an external
+   target has to be a button so it opens in the browser rather than navigating
+   the app away from itself. */
+.link-btn {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+.link-btn:focus-visible {
+  outline: var(--focus-w) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}

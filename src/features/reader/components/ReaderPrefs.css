@@ -1,0 +1,136 @@
+/* "Aa" reading-preferences popover. Surface reuses .ui-popover (baseui.css). */
+.prefs-popup {
+  width: min(19rem, calc(var(--app-viewport-width, 100vw) - var(--space-16)));
+  max-height: min(var(--available-height), calc(var(--app-viewport-height, 100vh) - var(--space-16)));
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+}
+
+.prefs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.prefs-label {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.prefs-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.prefs-step {
+  min-width: 28px;
+  padding: var(--space-2) var(--space-6);
+  font: inherit;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+  cursor: pointer;
+}
+.prefs-step:hover {
+  border-color: var(--accent);
+}
+.prefs-value.is-wide {
+  min-width: 8ch;
+}
+.prefs-value {
+  min-width: 3ch;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.prefs-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.prefs-seg-btn {
+  padding: var(--space-4) var(--space-8);
+  font: inherit;
+  font-size: var(--fs-xs);
+  border: 0;
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.prefs-seg-btn + .prefs-seg-btn {
+  border-left: 1px solid var(--border);
+}
+.prefs-seg-btn.is-active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.prefs-check {
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+/* Pace sits below comfort, separated by a rule: they are two different jobs
+   and the popover should not read as one long list of switches. */
+.prefs-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--border);
+}
+
+.prefs-section-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prefs-note {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+.prefs-start {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.prefs-start .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.prefs-step:disabled {
+  color: var(--text-dim);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.prefs-step:disabled:hover {
+  border-color: var(--border);
+}
+
+.prefs-reset {
+  align-self: flex-start;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}

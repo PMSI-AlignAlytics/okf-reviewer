@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OKF Reviewer DS · Nav</title>
+  <link rel="stylesheet" href="../styles/tokens.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <style>body{background:var(--colors-bg);color:var(--colors-text);font-family:var(--font-sans);margin:0;padding:var(--space-16);display:flex;flex-direction:column;gap:var(--space-48)}h2{font-size:var(--text-sm);color:var(--colors-text-muted);font-weight:var(--font-weight-medium);margin:0 0 var(--space-12)}.mobile-frame{max-width:390px}.mobile-frame .site-nav{padding:var(--space-8);gap:var(--space-12)}.mobile-frame .site-nav__brand{gap:var(--space-8);font-size:var(--text-sm);white-space:nowrap}.mobile-frame .site-nav__links{gap:var(--space-8)}.mobile-frame .btn{padding:var(--space-8) var(--space-12);font-size:var(--text-sm);white-space:nowrap}</style>
+</head>
+<body>
+  <section>
+    <h2>Desktop pill with a Product disclosure (open) and an active route</h2>
+    <nav class="site-nav" aria-label="Primary">
+      <a class="site-nav__brand" href="#">
+        <span class="site-nav__logo" style="background:var(--colors-gradient-brand)"></span>
+        OKF Reviewer
+      </a>
+      <div class="site-nav__links">
+        <div class="nav-menu">
+          <button class="nav-menu__trigger" type="button" aria-expanded="true" aria-controls="product-menu">
+            Product <span class="nav-menu__chevron" aria-hidden="true">▼</span>
+          </button>
+          <div class="nav-menu__panel" id="product-menu">
+            <a class="nav-menu__item" href="#">Overview</a>
+            <a class="nav-menu__item" href="#">Explore knowledge</a>
+            <a class="nav-menu__item" href="#">Knowledge quizzes</a>
+            <a class="nav-menu__item" href="#">Review concepts</a>
+            <a class="nav-menu__item" href="#">Compare changes</a>
+          </div>
+        </div>
+        <a class="site-nav__link" aria-current="page" href="#">Workflows</a>
+        <a class="site-nav__link" href="#">OKF</a>
+        <a class="site-nav__link" href="#">Docs</a>
+        <a class="site-nav__link" href="https://github.com/PMSI-AlignAlytics/okf-reviewer">GitHub</a>
+        <a class="btn btn--primary" href="#">↓ Download</a>
+      </div>
+    </nav>
+    <div style="height:200px"></div>
+  </section>
+
+  <section class="mobile-frame">
+    <h2>Narrow pill with its mobile menu (open)</h2>
+    <nav class="site-nav" aria-label="Primary">
+      <a class="site-nav__brand" href="#">
+        <span class="site-nav__logo" style="background:var(--colors-gradient-brand)"></span>
+        OKF Reviewer
+      </a>
+      <div class="site-nav__links">
+        <a class="btn btn--primary" href="#">↓ Download</a>
+        <button class="btn btn--secondary" type="button" aria-expanded="true" aria-controls="mobile-menu">Menu</button>
+      </div>
+    </nav>
+    <div class="mobile-menu" id="mobile-menu" style="margin-top:var(--space-8)">
+      <div class="mobile-menu__group">
+        <span class="mobile-menu__label">Product</span>
+        <a class="mobile-menu__link" href="#">Overview</a>
+        <a class="mobile-menu__link" href="#">Explore knowledge</a>
+        <a class="mobile-menu__link" href="#">Knowledge quizzes</a>
+        <a class="mobile-menu__link" href="#">Review concepts</a>
+        <a class="mobile-menu__link" href="#">Compare changes</a>
+      </div>
+      <a class="mobile-menu__link" aria-current="page" href="#">Workflows</a>
+      <a class="mobile-menu__link" href="#">OKF</a>
+      <a class="mobile-menu__link" href="#">Docs</a>
+      <a class="mobile-menu__link" href="https://github.com/PMSI-AlignAlytics/okf-reviewer">GitHub</a>
+    </div>
+  </section>
+</body>
+</html>
