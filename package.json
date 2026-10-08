@@ -45,7 +45,7 @@
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2",
     "dompurify": "^3.4.16",
