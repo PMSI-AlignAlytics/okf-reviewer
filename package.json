@@ -85,7 +85,7 @@
     "globals": "^17.7.0",
     "jsdom": "^25",
     "playwright": "^1.61.1",
-    "storybook": "^10.5.2",
+    "storybook": "^10.6.1",
     "typescript": "^5.9.3",
     "typescript-7": "npm:typescript@^7.0.2",
     "typescript-eslint": "^8.65.0",
