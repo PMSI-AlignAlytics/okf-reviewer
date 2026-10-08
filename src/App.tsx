@@ -20,6 +20,7 @@ import { QuizAuthenticationDialog } from "@/features/quiz/components/QuizAuthent
 import { RepositoryTrustDialog } from "@/features/git/components/RepositoryTrustDialog.tsx";
 import { showWindowWhenPainted } from "@/shared/platform/window.ts";
 import { interfaceScale } from "@/shared/uiScale.ts";
+import { AppUpdates } from "@/features/updates/AppUpdates.tsx";
 
 export function App() {
   const { state } = useApp();
@@ -68,6 +69,7 @@ export function App() {
   return (
     <div className="app" data-maximized={state.maximized || undefined}>
       <TopBar />
+      <AppUpdates />
       <div className="app-main">
         <ActivityBar />
         {state.bundle ? <Workspace /> : <EmptyState />}

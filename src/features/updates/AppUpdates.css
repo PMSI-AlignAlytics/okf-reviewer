@@ -1,0 +1,99 @@
+.app-update-settings,
+.app-update-dialog {
+  display: grid;
+  gap: var(--space-12);
+}
+
+.app-update-settings .setting-row {
+  padding-top: 0;
+}
+
+.app-update-settings .btn.primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.app-update-settings .btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.app-update-settings p,
+.app-update-help {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
+  max-inline-size: var(--measure-prose);
+}
+
+.app-update-error p {
+  color: var(--error);
+}
+
+.app-update-notes p {
+  margin-top: var(--space-8);
+  white-space: pre-wrap;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.app-update-settings a {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding-block: var(--space-4);
+}
+
+.app-update-notes summary {
+  min-height: 24px;
+  padding-block: var(--space-4);
+  cursor: pointer;
+}
+
+.app-update-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-16);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.app-update-notice > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-12);
+}
+
+.app-update-notice span {
+  color: var(--text-dim);
+}
+
+.app-update-notice__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.app-update-dialog {
+  width: min(460px, calc(var(--app-viewport-width) - var(--space-32)));
+  padding: var(--space-24);
+}
+
+.app-update-dialog h2,
+.app-update-dialog p {
+  margin: 0;
+}
+
+.app-update-dialog progress {
+  width: 100%;
+  accent-color: var(--accent);
+}

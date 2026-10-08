@@ -1,5 +1,6 @@
 //! Trusted desktop boundary for local OKF bundle reads and explicit human review.
 
+mod app_updates;
 mod bundle_grant;
 mod document_links;
 mod git;
@@ -831,6 +832,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init());
 
     #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    #[cfg(desktop)]
     let builder = builder.plugin(
         tauri_plugin_window_state::Builder::default()
             .with_filter(|label| label == "main")
@@ -859,6 +863,7 @@ pub fn run() {
                 })?,
             );
             app.manage(WatchState::default());
+            app.manage(app_updates::AppUpdateState::default());
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -897,6 +902,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app_updates::check_app_update,
+            app_updates::download_app_update,
+            app_updates::install_app_update,
             pick_bundle_folder,
             revoke_bundle_grant,
             scan_bundles,

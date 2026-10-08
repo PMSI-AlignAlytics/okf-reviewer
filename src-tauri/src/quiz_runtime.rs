@@ -602,6 +602,18 @@ pub struct QuizRuntimeState {
 }
 
 impl QuizRuntimeState {
+    pub fn ensure_idle_for_update(&self) -> Result<(), String> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| "Quiz storage is unavailable.")?;
+        if inner.cancellations.is_empty() {
+            Ok(())
+        } else {
+            Err("Finish or cancel quiz generation before updating the app.".into())
+        }
+    }
+
     pub fn load(app: &AppHandle) -> Result<Self, String> {
         let app_data = app
             .path()

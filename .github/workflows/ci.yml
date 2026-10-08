@@ -94,6 +94,7 @@ jobs:
       # releases in a row were bumped by hand with nothing checking they agreed,
       # A disagreement is silent until an installer exposes the wrong version.
       - run: pnpm check:version
+      - run: pnpm check:updates
 
       # docs/ is the product spec and the app's built-in sample, so malformed
       # concepts would ship as content.

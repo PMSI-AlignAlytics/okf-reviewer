@@ -39,6 +39,7 @@ import type {
 import "@/shared/styles/chrome.css";
 import "@/shared/styles/baseui.css";
 import "./Settings.css";
+import { AppUpdatesSettings } from "@/features/updates/AppUpdates.tsx";
 
 const THEME_LABELS: Record<ThemeMode, string> = {
   system: "System",
@@ -61,7 +62,7 @@ const SETTINGS_SECTIONS = [
   {
     id: "general",
     label: "General",
-    description: "Control local bundle discovery.",
+    description: "Manage application updates and local bundle discovery.",
     icon: Settings2,
   },
   {
@@ -99,6 +100,13 @@ interface SettingsSearchItem {
 }
 
 const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
+  {
+    id: "app-updates",
+    section: "general",
+    title: "Application updates",
+    description: "Check for a new release and update OKF Reviewer.",
+    keywords: "version update upgrade release download install restart about",
+  },
   {
     id: "scan-depth",
     section: "general",
@@ -287,6 +295,7 @@ function GeneralSettings({
 }) {
   return (
     <>
+    <AppUpdatesSettings />
     <SettingsGroup
       title="Bundle discovery"
       description="Discovery stays bounded to the folder you opened and skips generated directories."

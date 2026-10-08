@@ -36,6 +36,9 @@ switching, and removing a bundle registration never deletes bundle files.
 - Take and retake quizzes without further model calls, reveal explanations and
   resolved bundle evidence only after submission, review attempts and results,
   and distinguish stale quizzes from current ones.
+- Detect signed releases automatically and update from General settings or the
+  update notice. Windows MSI/NSIS and Linux AppImage/Debian installations keep
+  their installer format and save preferences before restarting.
 
 General agent chat, repository-wide Git management, graph visualizations,
 remote bundles, bundle creation, recipient projections, and general-purpose
@@ -124,13 +127,17 @@ cargo clippy -p okf-viewer --all-targets -- -D warnings
 cargo test -p okf-viewer --no-fail-fast
 node scripts/okf-validate.mjs docs
 node scripts/okf-validate.mjs design-system
-pnpm tauri build
+pnpm check:updates
+pnpm tauri build --no-bundle
 ```
 
 On Linux, Tauri's `.deb` is unreadable by dpkg when the building account's UID
 exceeds 999999, because the UID overflows a fixed-width archive header field.
 `pnpm repack:deb` rebuilds the package from Tauri's staging tree as
 `target/release/bundle/deb/<package>_<version>_<arch>.deb`.
+Repacking changes the signed bytes. Re-sign the resulting package with
+`pnpm tauri signer sign --app-version <version> <package>` before distributing
+it through the updater.
 
 The integration lane covers local bundle browsing, filtering, registration
 removal, accessibility, the controlled review write, and deterministic quiz
@@ -139,9 +146,33 @@ generation, answer reveal, scoring, history, and stale-state presentation.
 ## Releases and publication
 
 The release workflow builds Windows NSIS/MSI installers and Linux `.deb` and
-AppImage packages. Build jobs run with read-only permissions; a separate job
-uploads all installers after the builds succeed. Workflow actions are pinned
-to commit SHAs, and Dependabot proposes dependency and action updates.
+AppImage packages. Version tags trigger a release; the workflow compiles without
+signing credentials, then bundles with `TAURI_SIGNING_PRIVATE_KEY` and optional
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets. Every package signature
+is checked against the public key embedded in the app, including its signed
+release version. Windows runs actual two-version MSI and NSIS upgrade tests.
+A separate publishing job requires passing CI, uploads all four packages,
+signatures, and installer-specific `latest.json` to a draft, then publishes the
+complete release. Build jobs have read-only permissions. Actions are pinned to
+commit SHAs, and Dependabot proposes dependency and action updates.
+
+Install the first updater-enabled release manually. Later versions check at
+startup and every six hours, with an explicit **Update and restart** button.
+**Settings → General → Application updates** also offers a manual check,
+release notes, and a manual download link. Updating waits for quiz generation;
+failed downloads, signature checks, preference saves, or installations leave the
+app open for retry. Debian installation may request system authentication;
+AppImage updates require a writable file. Browser previews and development
+builds cannot install updates. App data and bundle files remain in their
+established locations.
+
+To release a change, update the version and log, commit it to `main`, and push
+the matching `v<version>` tag after the checks pass. For a reviewed draft before
+pushing the tag, run **Actions → Release → Run workflow** on `main`, enter the
+matching version tag, and leave **Publish** unchecked. Publishing
+a GitHub release directly does not start the builds. The public repository's
+latest stable release supplies the updater feed; prereleases remain outside
+that channel. Keep and back up the original signing key for future releases.
 
 For a clean public copy, stage the intended snapshot and run
 `pnpm check:publication`. This checks indexed files for local credentials,

@@ -1,118 +1,192 @@
 name: Release
 
-# When a GitHub Release is published, build the desktop app and attach the
-# installers/packages to that release. Create a release (e.g. from a tag like
-# v0.1.0) and publish it to trigger this.
+# Version tags publish only after every signed package is ready. Dispatch can
+# build a draft without advertising an incomplete update feed.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag to build or create (must match package.json)
+        required: true
+        type: string
+      publish:
+        description: Publish after all builds and signature checks succeed
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version and source
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          node scripts/check-version.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const tag = process.env.RELEASE_TAG;
+          const { version } = JSON.parse(fs.readFileSync('package.json'));
+          assert.match(tag, /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+          assert.equal(tag, `v${version}`);
+          const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          let tagged;
+          try { tagged = execFileSync('git', ['rev-parse', `refs/tags/${tag}^{commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+          catch { assert.equal(process.env.RELEASE_EVENT, 'workflow_dispatch'); }
+          if (tagged) assert.equal(sha, tagged);
+          execFileSync('git', ['merge-base', '--is-ancestor', sha, 'origin/main']);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nsha=${sha}\nprerelease=${version.includes('-')}\n`);
+          NODE
+
   build:
+    needs: prepare
     name: Build ${{ matrix.platform }} (${{ matrix.label }})
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          # .deb links against the *system* libraries, so building on an older
-          # base keeps it installable on 22.04 and every newer release.
+          # Debian packages retain support for Ubuntu 22.04 and newer.
           - platform: ubuntu-22.04
             label: deb
-            args: --bundles deb
-          # The AppImage *bundles* glib/Mesa, so build it on the current LTS:
-          # a 22.04-bundled AppImage breaks on modern hosts (glib symbol +
-          # EGL_BAD_PARAMETER). 26.04 is a preview runner for now.
+            bundles: deb
+          # AppImage carries system libraries; use the current LTS for modern
+          # GLib/Mesa hosts.
           - platform: ubuntu-26.04
             label: appimage
-            args: --bundles appimage
-          # Windows: .msi + NSIS .exe (from the tauri.conf bundle targets).
+            bundles: appimage
           - platform: windows-latest
-            label: msi+nsis
-            args: ""
+            label: windows
+            bundles: msi,nsis
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.sha }}
           persist-credentials: false
-
-      # Tauri 2 on Linux links against WebKitGTK 4.1 and friends; AppImage needs
-      # patchelf. (The official Tauri prerequisites list for Debian/Ubuntu.)
       - name: Install Linux build dependencies
         if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev
-
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf build-essential curl wget file libxdo-dev libssl-dev
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 10
-
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: pnpm
-
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           toolchain: stable
-
       - name: Cache cargo build
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-
       - run: pnpm install --frozen-lockfile
-
-      # Build scripts and package dependencies run without a write token.
+      - run: pnpm check:version
+      - run: pnpm check:updates
+      # Compile with no signing secret and no repository write token.
       - name: Build app
-        run: pnpm tauri build ${{ matrix.args }}
-
-      - name: Save installer artifacts
+        run: pnpm tauri build --no-bundle --ci
+      - name: Bundle and sign updates
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri bundle --bundles ${{ matrix.bundles }} --ci
+      - name: Verify and collect signed packages
+        run: node scripts/release-assets.mjs collect target/release/bundle release-assets ${{ matrix.bundles }}
+      - name: Test Windows MSI and NSIS upgrades
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-upgrade.ps1
+      - name: Save verified artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: desktop-${{ matrix.platform }}-${{ matrix.label }}
+          name: desktop-${{ matrix.label }}
           if-no-files-found: error
           retention-days: 7
-          path: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/appimage/*.AppImage
-            target/release/bundle/msi/*.msi
-            target/release/bundle/nsis/*.exe
+          path: release-assets/*
 
   publish:
-    name: Upload installers to release
-    needs: build
+    name: Publish complete signed release
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
-      - name: Download installer artifacts
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Download verified packages
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: desktop-*
           merge-multiple: true
           path: release-assets
-      - name: Upload installers
+      - name: Verify complete feed
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: node scripts/release-assets.mjs manifest release-assets "$RELEASE_TAG" "$REPOSITORY"
+      - name: Require passing application CI
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
           REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          conclusion=$(gh run list --repo "$REPOSITORY" --workflow ci.yml --commit "$RELEASE_SHA" --limit 1 --json conclusion --jq '.[0].conclusion')
+          test "$conclusion" = success
+      - name: Create draft, upload assets, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
         shell: bash
         run: |
-          mapfile -d '' installers < <(find release-assets -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.exe' \) -print0)
-          test "${#installers[@]}" -gt 0
-          gh release upload --repo "$REPOSITORY" -- "$RELEASE_TAG" "${installers[@]}"
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft --jq .isDraft > release-is-draft.txt; then
+            test "$(cat release-is-draft.txt)" = true
+          else
+            gh release create "$RELEASE_TAG" --repo "$REPOSITORY" --draft \
+              --target "$RELEASE_SHA" --title "OKF Reviewer $RELEASE_TAG" --notes-file release-assets/release-notes.md
+          fi
+          mapfile -d '' assets < <(find release-assets -type f ! -name 'release-notes.md' -print0)
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$REPOSITORY" --clobber
+          gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --notes-file release-assets/release-notes.md --prerelease="$PRERELEASE"
+          if [ "$PUBLISH" = true ]; then
+            gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --draft=false
+          fi

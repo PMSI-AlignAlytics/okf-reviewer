@@ -621,6 +621,7 @@ export interface Actions {
   setSettingsOpen(open: boolean): void;
   updateSettings(patch: Partial<Settings>): void;
   retrySettingsSave(): void;
+  flushSettings(): Promise<void>;
   openExternal(url: string): void;
   openLinkedDocument(root: string, fromId: string, href: string): Promise<void>;
 }
@@ -1155,6 +1156,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       retrySettingsSave() {
         appActions.updateSettings({});
+      },
+      async flushSettings() {
+        await settingsSaveQueueRef.current;
+        // Recheck the current snapshot and propagate failure before an update exits.
+        await ipc.saveSettings(stateRef.current.settings);
       },
       openExternal(url) {
         void ipc.openExternal(url);

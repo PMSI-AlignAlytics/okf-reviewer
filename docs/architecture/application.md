@@ -86,7 +86,10 @@ trust does not grant access to documents outside the picked folder.
 
 The command registry exposes bounded bundle reads, scoped document opening,
 reports, watch controls, application logging, the review preflight/apply pair,
-read-only Git operations, and quiz configuration, generation, and history.
+read-only Git operations, quiz configuration, generation, and history, and
+signed application updates restricted to the main window. The backend uses the
+compiled release endpoint and public key; the frontend cannot supply download
+URLs, signing keys, or installer bytes.
 Removing a bundle revokes the application grant when it is no longer used;
 it never deletes user files.
 
@@ -143,4 +146,9 @@ NSIS installations require the one-time migration described in the README.
 The application version comes from `package.json`; `pnpm version:set` synchronizes
 the Rust manifests, lockfile, and reference examples. Release builds have
 read-only GitHub permissions, and a separate publishing job uploads their
-packages to the release in this repository.
+packages and the installer-specific update feed to a draft in this repository
+before publishing. Both artifact signatures and their signed release versions
+must verify against the app public key. Automatic checks run at startup and
+every six hours; installation is explicit and preserves the established data
+locations. Windows installer upgrades and native download verification are
+covered by automated tests.

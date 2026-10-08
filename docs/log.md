@@ -1,5 +1,9 @@
 # Update Log
 
+## 2026-10-09
+
+* **Release**: 0.11.0. Added automatic signed-release checks, manual checks in General settings, release notes, download progress, retry actions, and one-click update and restart. Updates use the current Windows MSI/NSIS or Linux AppImage/Debian installation format, verify the artifact and signed release version, save preferences before exit, and wait for quiz generation to finish. GitHub Actions builds and signs every package, verifies all signatures against the app public key, and uploads a complete installer-specific update feed before publishing a version-tagged release. Existing application and data identities are preserved; the first updater-enabled release must be installed manually.
+
 ## 2026-10-08
 
 * **Release**: 0.10.1. Renamed the application and reference examples to OKF Reviewer and set the source, issue, and release links to PMSI-AlignAlytics/okf-reviewer. Preserved the application-data and versioned artifact identities, pinned the existing MSI upgrade code, and declared Debian package replacement. Documented the one-time migration for older NSIS installations. Removed the inherited contributing guide, moved current publication guidance into the README, and replaced the obsolete MVP plan with current architecture documentation. Removed stale Studio agent, graph, platform, version, and documentation references from the retained examples and comments. Historical attribution and existing verification events are preserved.
