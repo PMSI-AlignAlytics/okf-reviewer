@@ -54,7 +54,7 @@
     "marked": "^15",
     "marked-emoji": "^2.0.3",
     "marked-footnote": "^1.4.0",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.1.0",
     "react": "^19",
     "react-dom": "^19",
     "shiki": "^4.3.0"
