@@ -1,7 +1,7 @@
 {
   "name": "okf-reviewer",
   "private": true,
-  "version": "0.11.2",
+  "version": "0.11.3",
   "packageManager": "pnpm@10.34.5",
   "type": "module",
   "description": "Browse local OKF v0.2 bundles and record explicit human concept reviews.",
