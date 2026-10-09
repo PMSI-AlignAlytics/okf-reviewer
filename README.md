@@ -170,8 +170,11 @@ established locations.
 To release a change, update the version and log, commit it to `main`, and push
 the matching `v<version>` tag after the checks pass. For a reviewed draft before
 pushing the tag, run **Actions → Release → Run workflow** on `main`, enter the
-matching version tag, and leave **Publish** unchecked. Publishing
-a GitHub release directly does not start the builds. The public repository's
+matching version tag, and leave **Publish** unchecked. Dispatching an existing
+tag uses that tag's original source with the current workflow. Publishing a
+draft can create its tag and trigger another run; repeat runs verify the public
+installers and update feed, then succeed without rebuilding or replacing them.
+The public repository's
 latest stable release supplies the updater feed; prereleases remain outside
 that channel. Keep and back up the original signing key for future releases.
 

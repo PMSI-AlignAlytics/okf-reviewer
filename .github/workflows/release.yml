@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Version tag to build or create (must match package.json)
+        description: Version tag to verify, build, or create
         required: true
         type: string
       publish:
@@ -31,10 +31,11 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
       prerelease: ${{ steps.release.outputs.prerelease }}
+      published: ${{ steps.existing.outputs.published }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Validate version and source
@@ -43,27 +44,46 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           RELEASE_EVENT: ${{ github.event_name }}
         run: |
-          node scripts/check-version.mjs
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
           import { execFileSync } from 'node:child_process';
           const tag = process.env.RELEASE_TAG;
-          const { version } = JSON.parse(fs.readFileSync('package.json'));
           assert.match(tag, /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-          assert.equal(tag, `v${version}`);
-          const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
           let tagged;
           try { tagged = execFileSync('git', ['rev-parse', `refs/tags/${tag}^{commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
           catch { assert.equal(process.env.RELEASE_EVENT, 'workflow_dispatch'); }
-          if (tagged) assert.equal(sha, tagged);
+          if (process.env.RELEASE_EVENT === 'push') assert.equal(head, tagged);
+          // Dispatch runs the current workflow against the immutable tag's
+          // source, so workflow fixes never require moving a published tag.
+          const sha = tagged || head;
+          const { version } = JSON.parse(execFileSync('git', ['show', `${sha}:package.json`], { encoding: 'utf8' }));
+          assert.equal(tag, `v${version}`);
           execFileSync('git', ['merge-base', '--is-ancestor', sha, 'origin/main']);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nsha=${sha}\nprerelease=${version.includes('-')}\n`);
           NODE
+      - name: Check out pinned application source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          path: release-source
+          persist-credentials: false
+      - name: Check source version declarations
+        working-directory: release-source
+        run: node scripts/check-version.mjs
+      - name: Verify any already published release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: node scripts/check-published-release.mjs "$RELEASE_TAG" "$RELEASE_SHA" release-source
 
   signing-key:
     name: Validate signing credentials
     needs: prepare
+    if: needs.prepare.outputs.published != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -189,6 +209,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
+      - name: Check out workflow tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: release-tools
+          persist-credentials: false
       - name: Download verified packages
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -208,7 +234,15 @@ jobs:
         run: |
           conclusion=$(gh run list --repo "$REPOSITORY" --workflow ci.yml --commit "$RELEASE_SHA" --limit 1 --json conclusion --jq '.[0].conclusion')
           test "$conclusion" = success
+      - name: Recheck for publication during the builds
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        run: node release-tools/scripts/check-published-release.mjs "$RELEASE_TAG" "$RELEASE_SHA" .
       - name: Create draft, upload assets, then publish
+        if: steps.existing.outputs.published != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}

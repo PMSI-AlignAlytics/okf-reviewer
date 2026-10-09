@@ -2,6 +2,8 @@
 
 ## 2026-10-09
 
+* **Fix**: Repeat release workflows verify the existing public installers, signatures, source commit, and update feed, then finish successfully while preserving the published assets. Manual runs can use the current workflow with an existing tag's original source. This changes release automation only; the application remains at 0.11.0.
+
 * **Release**: 0.11.0. Added automatic signed-release checks, manual checks in General settings, release notes, download progress, retry actions, and one-click update and restart. Updates use the current Windows MSI/NSIS or Linux AppImage/Debian installation format, verify the artifact and signed release version, save preferences before exit, and wait for quiz generation to finish. GitHub Actions builds and signs every package, verifies all signatures against the app public key, and uploads a complete installer-specific update feed before publishing a version-tagged release. Existing application and data identities are preserved; the first updater-enabled release must be installed manually.
 
 ## 2026-10-08
