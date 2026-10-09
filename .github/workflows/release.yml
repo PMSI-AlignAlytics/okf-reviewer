@@ -160,10 +160,8 @@ jobs:
         run: pnpm tauri bundle --bundles ${{ matrix.bundles }} --ci
       - name: Verify and collect signed packages
         run: node scripts/release-assets.mjs collect target/release/bundle release-assets ${{ matrix.bundles }}
-      - name: Test Windows MSI and NSIS upgrades
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/test-windows-upgrade.ps1
+      # Keep verified packages available for diagnosis if an installer test
+      # fails. Publication still requires this entire build job to succeed.
       - name: Save verified artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -171,6 +169,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           path: release-assets/*
+      - name: Test Windows MSI and NSIS upgrades
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-upgrade.ps1
 
   publish:
     name: Publish complete signed release

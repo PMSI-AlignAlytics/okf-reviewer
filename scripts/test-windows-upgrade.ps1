@@ -21,12 +21,22 @@ $currentProduct = $null
 function Get-MsiProperty($file, $property) {
     $database = $installer.OpenDatabase($file, 0)
     $view = $database.OpenView("SELECT ``Value`` FROM ``Property`` WHERE ``Property``='$property'")
-    $view.Execute()
+    [void] $view.Execute()
     $record = $view.Fetch()
     if ($null -eq $record) { throw "Missing MSI property $property" }
-    $value = $record.StringData(1)
-    $view.Close()
-    return $value
+    # These COM members are indexed properties, not methods. Explicit dispatch
+    # avoids PowerShell 7's method binding for the Windows Installer interface.
+    $value = $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+    [void] $view.Close()
+    return [string] $value
+}
+
+function Get-MsiProductVersion($product) {
+    return $installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($product, 'VersionString'))
+}
+
+function Get-MsiProductState($product) {
+    return $installer.GetType().InvokeMember('ProductState', 'GetProperty', $null, $installer, @($product))
 }
 
 function Invoke-Msi($operation, $file) {
@@ -43,6 +53,14 @@ function Assert-DataPreserved {
 }
 
 try {
+    # Check MSI automation before spending time compiling the older fixture.
+    $currentProduct = Get-MsiProperty $msi[0].FullName 'ProductCode'
+    [void] [guid]::Parse($currentProduct)
+    $releaseUpgrade = [guid] (Get-MsiProperty $msi[0].FullName 'UpgradeCode')
+    if ((Get-MsiProperty $msi[0].FullName 'ProductVersion') -ne $version) { throw 'Release MSI version does not match the app.' }
+    [void] (Get-MsiProductState $currentProduct)
+    Write-Output "Release MSI metadata verified: $version; product $currentProduct; upgrade $releaseUpgrade."
+
     pnpm version:set $baseline
     if ($LASTEXITCODE -ne 0) { throw 'Could not configure the older test build.' }
     # pnpm's Windows command shim strips quotes from inline JSON. Pass a file
@@ -55,15 +73,14 @@ try {
     if ($oldMsi.Count -ne 1 -or $oldNsis.Count -ne 1) { throw 'Older test installers were not produced.' }
 
     $oldProduct = Get-MsiProperty $oldMsi[0].FullName 'ProductCode'
-    $currentProduct = Get-MsiProperty $msi[0].FullName 'ProductCode'
-    if ((Get-MsiProperty $oldMsi[0].FullName 'UpgradeCode') -ne (Get-MsiProperty $msi[0].FullName 'UpgradeCode')) {
+    if ([guid] (Get-MsiProperty $oldMsi[0].FullName 'UpgradeCode') -ne $releaseUpgrade) {
         throw 'MSI upgrade identity changed.'
     }
     Invoke-Msi '/i' $oldMsi[0].FullName
-    if ($installer.ProductInfo($oldProduct, 'VersionString') -ne $baseline) { throw 'The older MSI version did not install.' }
+    if ((Get-MsiProductVersion $oldProduct) -ne $baseline) { throw 'The older MSI version did not install.' }
     Invoke-Msi '/i' $msi[0].FullName
-    if ($installer.ProductInfo($currentProduct, 'VersionString') -ne $version) { throw 'MSI did not upgrade to the release version.' }
-    if ($installer.ProductState($oldProduct) -ne -1) { throw 'The older MSI product was left installed.' }
+    if ((Get-MsiProductVersion $currentProduct) -ne $version) { throw 'MSI did not upgrade to the release version.' }
+    if ((Get-MsiProductState $oldProduct) -ne -1) { throw 'The older MSI product was left installed.' }
     Assert-DataPreserved
     Invoke-Msi '/x' $currentProduct
     $currentProduct = $null
@@ -78,12 +95,20 @@ try {
         Get-Process okf-viewer -ErrorAction SilentlyContinue | Stop-Process -Force
     }
     Write-Output "MSI and NSIS upgrade tests passed: $baseline -> $version; application data preserved."
+} catch {
+    Write-Output "Windows upgrade check failed: $($_.Exception.Message)"
+    Write-Output $_.ScriptStackTrace
+    throw
 } finally {
     Get-Process okf-viewer -ErrorAction SilentlyContinue | Stop-Process -Force
-    if ($null -ne $currentProduct -and $installer.ProductState($currentProduct) -eq 5) { Invoke-Msi '/x' $currentProduct }
-    if (Test-Path $installDirectory) {
-        $uninstaller = Get-ChildItem $installDirectory -Filter '*uninstall*.exe' | Select-Object -First 1
-        if ($null -ne $uninstaller) { Start-Process $uninstaller.FullName -ArgumentList '/S' -Wait }
+    try {
+        if ($null -ne $currentProduct -and (Get-MsiProductState $currentProduct) -eq 5) { Invoke-Msi '/x' $currentProduct }
+        if (Test-Path $installDirectory) {
+            $uninstaller = Get-ChildItem $installDirectory -Filter '*uninstall*.exe' | Select-Object -First 1
+            if ($null -ne $uninstaller) { Start-Process $uninstaller.FullName -ArgumentList '/S' -Wait }
+        }
+    } catch {
+        Write-Warning "Disposable runner cleanup failed: $($_.Exception.Message)"
     }
     pnpm version:set $version
     Remove-Item $baselineConfig -ErrorAction SilentlyContinue
