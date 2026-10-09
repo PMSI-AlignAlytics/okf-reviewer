@@ -61,8 +61,47 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nsha=${sha}\nprerelease=${version.includes('-')}\n`);
           NODE
 
-  build:
+  signing-key:
+    name: Validate signing credentials
     needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check key and password before compiling
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          cp scripts/fixtures/updater/payload.txt "$RUNNER_TEMP/updater-signing-probe"
+          # A version below every release prevents this test payload from ever
+          # qualifying as an application upgrade. The signature is not uploaded.
+          pnpm tauri signer sign "$RUNNER_TEMP/updater-signing-probe" --app-version 0.0.0 \
+            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" > /dev/null
+      - name: Verify the signing key matches the app public key
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { verifyArtifact } from './scripts/release-assets.mjs';
+          const probe = path.join(process.env.RUNNER_TEMP, 'updater-signing-probe');
+          const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'));
+          verifyArtifact(fs.readFileSync(probe), fs.readFileSync(`${probe}.sig`, 'utf8'), config.plugins.updater.pubkey, '0.0.0');
+          console.log('Signing credentials match the public key embedded in the app.');
+          NODE
+
+  build:
+    needs: [prepare, signing-key]
     name: Build ${{ matrix.platform }} (${{ matrix.label }})
     timeout-minutes: 60
     strategy:

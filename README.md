@@ -146,7 +146,8 @@ generation, answer reveal, scoring, history, and stale-state presentation.
 ## Releases and publication
 
 The release workflow builds Windows NSIS/MSI installers and Linux `.deb` and
-AppImage packages. Version tags trigger a release; the workflow compiles without
+AppImage packages. Version tags trigger a release; the workflow first checks the
+signing key and password against the app public key, then compiles without
 signing credentials, then bundles with `TAURI_SIGNING_PRIVATE_KEY` and optional
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets. Every package signature
 is checked against the public key embedded in the app, including its signed
