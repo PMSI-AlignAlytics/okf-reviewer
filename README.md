@@ -203,6 +203,18 @@ and data compatibility. The MSI upgrade code is pinned to its former value
 (derived from `OKF Review.exe.app.x64`) so the display-name change preserves
 Windows MSI upgrade detection.
 
+Use the pnpm version pinned by `packageManager` in `package.json`; CI and
+Dependabot use this pin to keep lockfile and patch metadata consistent.
+Release builds read the pin from the selected tag, with pnpm 10 for older tags.
+Dependabot groups related Storybook/Vitest, Vite/React compiler, TypeScript,
+and native Tauri updates. Routine major version updates for TypeScript, Vite,
+the React plugin, Vitest and its Playwright provider, and Mermaid are deferred
+until their compatibility migrations are planned; minor, patch, and security
+updates remain enabled. Remove the relevant major-version ignore rule when
+completing a migration. Storybook addon upgrades must also refresh the patch
+in `pnpm-workspace.yaml` with pnpm 10 and pass `pnpm install --frozen-lockfile`
+and the browser story tests.
+
 The Debian package is now `okf-reviewer` and replaces the former `okf-review`
 package. For an existing Windows NSIS (`.exe`) installation, uninstall
 **OKF Review** once before installing **OKF Reviewer**; leave the uninstaller's

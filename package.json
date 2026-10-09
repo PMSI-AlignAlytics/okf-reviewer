@@ -1,7 +1,8 @@
 {
   "name": "okf-reviewer",
   "private": true,
-  "version": "0.11.1",
+  "version": "0.11.2",
+  "packageManager": "pnpm@10.34.5",
   "type": "module",
   "description": "Browse local OKF v0.2 bundles and record explicit human concept reviews.",
   "repository": {
@@ -62,8 +63,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@storybook/addon-vitest": "^10.5.2",
-    "@storybook/react-vite": "^10.5.2",
+    "@storybook/addon-vitest": "^10.6.1",
+    "@storybook/react-vite": "^10.6.1",
     "@tauri-apps/cli": "^2.12.1",
     "@testing-library/jest-dom": "^6",
     "@testing-library/react": "^16",
@@ -85,7 +86,7 @@
     "globals": "^17.7.0",
     "jsdom": "^25",
     "playwright": "^1.61.1",
-    "storybook": "^10.5.2",
+    "storybook": "^10.6.1",
     "typescript": "^5.9.3",
     "typescript-7": "npm:typescript@^7.0.2",
     "typescript-eslint": "^8.65.0",

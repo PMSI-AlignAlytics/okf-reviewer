@@ -11,7 +11,7 @@ overrides:
   "baseline-browser-mapping@<2.11.0": "^2.11.0"
 
 patchedDependencies:
-  "@storybook/addon-vitest@10.5.2": patches/@storybook__addon-vitest@10.5.2.patch
+  "@storybook/addon-vitest@10.6.1": patches/@storybook__addon-vitest@10.6.1.patch
 
 peerDependencyRules:
   allowedVersions:

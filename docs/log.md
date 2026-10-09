@@ -2,6 +2,8 @@
 
 ## 2026-10-09
 
+* **Release**: 0.11.2. Aligned the Storybook core, React framework, and Vitest addon at 10.6.1, retaining the test runner startup timeout patch and regenerating its pnpm 10 lock metadata. Pinned pnpm consistently for dependency updates, CI, and tagged release builds, with a fallback for older tags. Grouped related Dependabot updates and deferred incompatible routine major upgrades to planned migrations while retaining minor, patch, and security updates.
+
 * **Release**: 0.11.1. Updated regex, UUID, and the native Tauri opener and dialog dependencies after compatibility review. The dependency maintenance batch retains the current review workflow, signed updater configuration, application identity, and data locations.
 
 * **Fix**: Repeat release workflows verify the existing public installers, signatures, source commit, and update feed, then finish successfully while preserving the published assets. Manual runs can use the current workflow with an existing tag's original source. This changes release automation only; the application remains at 0.11.0.
