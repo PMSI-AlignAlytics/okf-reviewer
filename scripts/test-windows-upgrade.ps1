@@ -14,6 +14,7 @@ $preferences = Join-Path $dataDirectory 'upgrade-smoke-settings.json'
 Set-Content -Path $preferences -Value '{"reviewerId":"upgrade-smoke","savedQuizHistory":"keep"}' -Encoding utf8
 $settingsHash = (Get-FileHash $preferences).Hash
 $installDirectory = Join-Path $env:RUNNER_TEMP 'okf-upgrade-smoke'
+$baselineConfig = Join-Path $env:RUNNER_TEMP 'okf-upgrade-baseline.json'
 $installer = New-Object -ComObject WindowsInstaller.Installer
 $currentProduct = $null
 
@@ -44,7 +45,10 @@ function Assert-DataPreserved {
 try {
     pnpm version:set $baseline
     if ($LASTEXITCODE -ne 0) { throw 'Could not configure the older test build.' }
-    pnpm tauri build --bundles msi,nsis --ci --config '{"bundle":{"createUpdaterArtifacts":false}}'
+    # pnpm's Windows command shim strips quotes from inline JSON. Pass a file
+    # so Tauri receives the same configuration through every shell.
+    '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $baselineConfig -Encoding utf8NoBOM
+    pnpm tauri build --bundles msi,nsis --ci --config $baselineConfig
     if ($LASTEXITCODE -ne 0) { throw 'Could not build the older test installers.' }
     $oldMsi = @(Get-ChildItem target/release/bundle/msi -Filter '*.msi' | Where-Object { $_.Name.Contains("_${baseline}_") })
     $oldNsis = @(Get-ChildItem target/release/bundle/nsis -Filter '*.exe' | Where-Object { $_.Name.Contains("_${baseline}_") })
@@ -82,4 +86,5 @@ try {
         if ($null -ne $uninstaller) { Start-Process $uninstaller.FullName -ArgumentList '/S' -Wait }
     }
     pnpm version:set $version
+    Remove-Item $baselineConfig -ErrorAction SilentlyContinue
 }
