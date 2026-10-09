@@ -1,7 +1,8 @@
 {
   "name": "okf-reviewer",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.11.2",
+  "packageManager": "pnpm@10.34.5",
   "type": "module",
   "description": "Browse local OKF v0.2 bundles and record explicit human concept reviews.",
   "repository": {
@@ -22,7 +23,7 @@
     "check:artifacts": "node scripts/check-artifacts.mjs",
     "check:quiz-schema": "node scripts/generate-quiz-types.mjs --check",
     "check:version": "node scripts/check-version.mjs",
-    "check:updates": "node --test scripts/release-assets.test.mjs",
+    "check:updates": "node --test scripts/release-assets.test.mjs scripts/check-published-release.test.mjs",
     "check:publication": "node scripts/check-publication.mjs",
     "check:render-security": "node scripts/test-renderers.mjs",
     "check:rust-security": "python3 scripts/audit-rust.py",
@@ -45,7 +46,7 @@
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2",
     "dompurify": "^3.4.16",
@@ -62,8 +63,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@storybook/addon-vitest": "^10.5.2",
-    "@storybook/react-vite": "^10.5.2",
+    "@storybook/addon-vitest": "^10.6.1",
+    "@storybook/react-vite": "^10.6.1",
     "@tauri-apps/cli": "^2.12.1",
     "@testing-library/jest-dom": "^6",
     "@testing-library/react": "^16",

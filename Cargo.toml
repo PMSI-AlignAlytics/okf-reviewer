@@ -11,7 +11,7 @@ glib = { path = "vendor/glib" }
 
 [workspace.package]
 edition = "2021"
-version = "0.11.0"
+version = "0.11.2"
 license = "MIT"
 repository = "https://github.com/PMSI-AlignAlytics/okf-reviewer"
 

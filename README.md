@@ -146,7 +146,8 @@ generation, answer reveal, scoring, history, and stale-state presentation.
 ## Releases and publication
 
 The release workflow builds Windows NSIS/MSI installers and Linux `.deb` and
-AppImage packages. Version tags trigger a release; the workflow compiles without
+AppImage packages. Version tags trigger a release; the workflow first checks the
+signing key and password against the app public key, then compiles without
 signing credentials, then bundles with `TAURI_SIGNING_PRIVATE_KEY` and optional
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets. Every package signature
 is checked against the public key embedded in the app, including its signed
@@ -169,8 +170,11 @@ established locations.
 To release a change, update the version and log, commit it to `main`, and push
 the matching `v<version>` tag after the checks pass. For a reviewed draft before
 pushing the tag, run **Actions → Release → Run workflow** on `main`, enter the
-matching version tag, and leave **Publish** unchecked. Publishing
-a GitHub release directly does not start the builds. The public repository's
+matching version tag, and leave **Publish** unchecked. Dispatching an existing
+tag uses that tag's original source with the current workflow. Publishing a
+draft can create its tag and trigger another run; repeat runs verify the public
+installers and update feed, then succeed without rebuilding or replacing them.
+The public repository's
 latest stable release supplies the updater feed; prereleases remain outside
 that channel. Keep and back up the original signing key for future releases.
 
@@ -198,6 +202,18 @@ application identifier and native executable name are retained for installation
 and data compatibility. The MSI upgrade code is pinned to its former value
 (derived from `OKF Review.exe.app.x64`) so the display-name change preserves
 Windows MSI upgrade detection.
+
+Use the pnpm version pinned by `packageManager` in `package.json`; CI and
+Dependabot use this pin to keep lockfile and patch metadata consistent.
+Release builds read the pin from the selected tag, with pnpm 10 for older tags.
+Dependabot groups related Storybook/Vitest, Vite/React compiler, TypeScript,
+and native Tauri updates. Routine major version updates for TypeScript, Vite,
+the React plugin, Vitest and its Playwright provider, and Mermaid are deferred
+until their compatibility migrations are planned; minor, patch, and security
+updates remain enabled. Remove the relevant major-version ignore rule when
+completing a migration. Storybook addon upgrades must also refresh the patch
+in `pnpm-workspace.yaml` with pnpm 10 and pass `pnpm install --frozen-lockfile`
+and the browser story tests.
 
 The Debian package is now `okf-reviewer` and replaces the former `okf-review`
 package. For an existing Windows NSIS (`.exe`) installation, uninstall
