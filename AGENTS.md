@@ -2,16 +2,24 @@
 
 This project is a focused OKF bundle reader and human-review application.
 
-The only permitted concept mutation in the MVP is the controlled operation that:
+The only permitted bundle mutation is the controlled review operation that:
 
 1. sets `status` to `stable`; and
-2. appends a human verification event.
+2. appends a human verification event recording the `content_sha256` of the body it approves.
 
-Do not introduce general document editing, AI features, quiz features, Git-management features or additional workflow states without an explicit requirement.
+It refuses to repeat a reviewer's existing approval of an unchanged body. See `docs/review-operation.md`.
+
+These capabilities are established and in scope:
+
+- Read-only Git inspection: status, change comparison, feature review batches against an automatic or reviewer-selected commit, removed-document text, and quiz evidence. Never stage, commit, check out, or change Git configuration.
+- Outputs for other tools, such as review records and reviewer feedback, go to the clipboard. They are never written to the bundle or repository.
+- Application-owned knowledge quizzes, with provider output validated natively and quiz data kept in application data.
+
+Do not introduce general document editing, further bundle mutations, Git-writing features, agent chat or other AI features beyond the bounded quiz task, or additional workflow states (such as "changes requested" or implementation acceptance) without an explicit requirement.
 
 ## Implementation principles
 
-- Reuse existing OKF Studio components before creating replacements.
+- Reuse existing components and patterns in this repository before creating replacements.
 - Treat the current OKF specification as authoritative.
 - Preserve unknown OKF fields.
 - Keep filesystem writes in the trusted backend.

@@ -1,0 +1,65 @@
+.impl-evidence {
+  display: grid;
+  gap: var(--space-6);
+  font-size: var(--fs-xs);
+}
+
+.impl-evidence__status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  margin: 0;
+  line-height: var(--lh-normal);
+}
+
+.impl-evidence__status svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.impl-evidence__status[data-state="current"] {
+  color: var(--ok);
+}
+
+.impl-evidence__status[data-state="earlier"] {
+  color: var(--warn);
+}
+
+.impl-evidence__status[data-state="unknown"] {
+  color: var(--text-dim);
+}
+
+.impl-evidence__path {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.impl-evidence__path code {
+  overflow-wrap: anywhere;
+}
+
+.impl-evidence__path [role="status"],
+.impl-evidence__path > span:not([role]) {
+  color: var(--text-dim);
+}
+
+.impl-evidence__error {
+  flex-basis: 100%;
+  color: var(--error);
+}
+
+.impl-evidence__problems {
+  margin: 0;
+  padding-left: var(--space-16);
+  color: var(--warn);
+  line-height: var(--lh-normal);
+}
+
+.impl-evidence__note {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: var(--lh-normal);
+}

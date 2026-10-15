@@ -26,7 +26,20 @@ switching, and removing a bundle registration never deletes bundle files.
 - Follow local Markdown references outside the active bundle in the default app when they are inside the opened folder; distinguish missing files from paths outside that folder's access scope.
 - Reload when bundle files change on disk while retaining the current selection when it still exists.
 - Persist a reviewer ID plus optional local display name and email.
-- Confirm the exact concept, path, lifecycle change, actor, and timestamp before recording a review.
+- Confirm the exact concept, path, approved body hash, change since the comparison base, lifecycle change, actor, and timestamp before recording a review. The confirmation states that a review approves the body's wording, not code, metadata, implementation, or deployment; an unchanged approval by the same reviewer is acknowledged rather than stamped again.
+- Work through a Feature review batch: compare with the automatic base or a
+  saved commit such as the approved spec, list changed, reviewed, and
+  outstanding documents using the OKF review check's rule, distinguish wording
+  from metadata-only changes, check removed and deprecated documents and what
+  links to them, open the next outstanding document, see reviews not yet
+  committed, and copy a review record with body hashes once nothing is
+  outstanding.
+- See whether an optional `implementation` pointer's recorded check covered
+  the current wording, and open its evidence record (a pull request, a bundle
+  concept, or a local delivery record inside the opened folder) without
+  recording implementation acceptance.
+- See which unchanged documents link to changed wording, and copy feedback for
+  a concept's author instead of approving it. Feedback never changes the bundle.
 - Generate evidence-bound quizzes from the current concept, a reviewed document
   selection, a locally retrieved topic, semantic bundle changes since a Git
   revision, or current documents newly human-reviewed since `HEAD`.

@@ -796,7 +796,11 @@ export const MOCK_GIT_STATUS: BundleGitStatus = {
   currentBranch: "main",
   defaultBranch: "main",
   baseRevision: "abcdef0123456789",
+  defaultBaseRevision: "abcdef0123456789",
+  baseSubject: "Describe the graph view",
+  baselineNotice: null,
   modifiedConceptIds: ["features/graph-view"],
+  bodyChangedConceptIds: ["features/graph-view"],
   deletedPaths: [],
   lineChangesByConcept: {
     "features/graph-view": [
@@ -810,6 +814,9 @@ export const MOCK_GIT_STATUS: BundleGitStatus = {
       },
     ],
   },
+  uncommittedConceptIds: ["features/graph-view"],
+  uncommittedReviewConceptIds: [],
+  uncommittedDeletedPaths: [],
   trustRequired: false,
   repositoryRoot: "C:\\mock-repository",
   message: null,

@@ -1,5 +1,8 @@
 //! Local Markdown references use the existing native folder grant. They do not
 //! add concepts, graph edges, or review targets to the active OKF bundle.
+//! A concept's `implementation.evidence` record is treated the same way: a
+//! delivery record kept outside the bundle opens under the same checks as an
+//! authored body link.
 
 use crate::bundle_grant::BundleGrantState;
 use okf_core::{links, Bundle, IssueLevel};
@@ -12,6 +15,8 @@ use std::path::{Component, Path, PathBuf};
 pub enum DocumentLinkState {
     Available,
     OutsideScope,
+    /// Only reported for evidence records; a missing body link stays broken.
+    Missing,
 }
 
 #[derive(Debug, Serialize)]
@@ -26,6 +31,19 @@ pub struct ReaderBundle {
     #[serde(flatten)]
     pub bundle: Bundle,
     document_links: BTreeMap<String, Vec<DocumentLink>>,
+    /// Local delivery records named by `implementation.evidence`, by concept.
+    evidence_links: BTreeMap<String, DocumentLink>,
+}
+
+/// The local record a concept's `implementation.evidence` names, as authored.
+fn declared_evidence(concept: &okf_core::Concept) -> Option<&str> {
+    concept
+        .extra
+        .get("implementation")?
+        .get("evidence")?
+        .as_str()
+        .map(str::trim)
+        .filter(|href| !href.is_empty())
 }
 
 enum Resolution {
@@ -121,6 +139,33 @@ pub fn read_bundle(root: &Path, scope: &Path) -> ReaderBundle {
         }
     }
 
+    // URLs open in the browser and bundle concepts in the reader, so only a
+    // local Markdown record outside the bundle is classified here.
+    let mut evidence_links = BTreeMap::new();
+    for concept in &bundle.concepts {
+        let Some(href) = declared_evidence(concept) else {
+            continue;
+        };
+        let Some(path) = links::local_markdown_path(href) else {
+            continue;
+        };
+        if links::resolve(&path, &concept.id).is_some_and(|id| concept_ids.contains(id.as_str())) {
+            continue;
+        }
+        let state = match resolve(root, scope, &concept.id, href) {
+            Some(Resolution::Available(_)) => DocumentLinkState::Available,
+            Some(Resolution::OutsideScope) => DocumentLinkState::OutsideScope,
+            Some(Resolution::Missing) | None => DocumentLinkState::Missing,
+        };
+        evidence_links.insert(
+            concept.id.clone(),
+            DocumentLink {
+                href: href.to_string(),
+                state,
+            },
+        );
+    }
+
     let mut cleared_warnings = HashSet::new();
     for concept in &mut bundle.concepts {
         if let Some(resolved) = document_links.get(&concept.id) {
@@ -143,6 +188,7 @@ pub fn read_bundle(root: &Path, scope: &Path) -> ReaderBundle {
     ReaderBundle {
         bundle,
         document_links,
+        evidence_links,
     }
 }
 
@@ -190,6 +236,46 @@ pub fn declared_document_path(
         _ => Err(
             "The linked Markdown document is no longer available. Reload the bundle.".to_string(),
         ),
+    }
+}
+
+/// Re-read the concept's declared evidence record and recheck the grant at
+/// activation time, exactly as for an authored body link.
+pub fn declared_evidence_path(
+    grants: &BundleGrantState,
+    requested_root: &Path,
+    concept_id: &str,
+    href: &str,
+) -> Result<PathBuf, String> {
+    let root = grants.authorize_bundle(requested_root)?;
+    let scope = grants.document_scope_for_bundle(&root)?;
+    let bundle = okf_core::read_bundle(&root);
+    let concept = bundle
+        .concepts
+        .iter()
+        .find(|concept| concept.id == concept_id)
+        .ok_or_else(|| "The concept is no longer available. Reload the bundle.".to_string())?;
+    if declared_evidence(concept) != Some(href) {
+        return Err(
+            "This concept no longer names that evidence record. Reload the bundle.".to_string(),
+        );
+    }
+    // A record that is itself a concept opens in the reader, not natively.
+    if links::local_markdown_path(href)
+        .and_then(|path| links::resolve(&path, concept_id))
+        .is_some_and(|id| bundle.concepts.iter().any(|concept| concept.id == id))
+    {
+        return Err(
+            "This evidence record is a concept in the bundle. Open it in the reader.".to_string(),
+        );
+    }
+    match resolve(&root, &scope, concept_id, href) {
+        Some(Resolution::Available(path)) => Ok(path),
+        Some(Resolution::OutsideScope) => Err(
+            "This evidence record is outside the opened folder. Open the containing folder in OKF Reviewer."
+                .to_string(),
+        ),
+        _ => Err("The evidence record is not an available Markdown document.".to_string()),
     }
 }
 
@@ -527,5 +613,104 @@ mod tests {
             .any(|issue| issue.level == IssueLevel::Error
                 && issue.message.contains("no 'type' field")));
         assert_eq!(fixture.project(&reader).broken_links.len(), 2);
+    }
+
+    fn declare_evidence(fixture: &Fixture, evidence: &str) {
+        fs::write(
+            fixture.root.join("project.md"),
+            format!(
+                "---\ntype: Project\nimplementation:\n  spec_sha256: \"{}\"\n  evidence: \"{evidence}\"\n---\n# Project context\n",
+                "a".repeat(64)
+            ),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn evidence_records_outside_the_bundle_open_under_the_folder_grant() {
+        let fixture = Fixture::new();
+        fixture.grant(&fixture.repository);
+        let delivery = fixture.repository.join("knowledge/delivery");
+        fs::create_dir_all(&delivery).unwrap();
+        let record = delivery.join("2026-10-15-occupancy.md");
+        fs::write(&record, "# Delivery: occupancy\n").unwrap();
+        let href = "../delivery/2026-10-15-occupancy.md";
+        declare_evidence(&fixture, href);
+
+        let reader = read_bundle(&fixture.root, &fixture.repository);
+        assert_eq!(reader.evidence_links["project"].href, href);
+        assert_eq!(
+            reader.evidence_links["project"].state,
+            DocumentLinkState::Available
+        );
+        assert_eq!(
+            reader.bundle.concepts.len(),
+            2,
+            "a delivery record never becomes a concept"
+        );
+        assert_eq!(
+            declared_evidence_path(&fixture.grants, &fixture.root, "project", href).unwrap(),
+            dunce::canonicalize(&record).unwrap()
+        );
+        let json = serde_json::to_value(&reader).unwrap();
+        assert_eq!(json["evidenceLinks"]["project"]["state"], "available");
+
+        assert!(
+            declared_evidence_path(
+                &fixture.grants,
+                &fixture.root,
+                "project",
+                "../delivery/other.md"
+            )
+            .unwrap_err()
+            .contains("no longer names"),
+            "only the record the concept currently names can open"
+        );
+        fs::remove_file(&record).unwrap();
+        assert_eq!(
+            read_bundle(&fixture.root, &fixture.repository).evidence_links["project"].state,
+            DocumentLinkState::Missing
+        );
+        assert!(declared_evidence_path(&fixture.grants, &fixture.root, "project", href).is_err());
+    }
+
+    #[test]
+    fn evidence_outside_the_grant_urls_and_bundle_concepts_are_not_opened_natively() {
+        let fixture = Fixture::new();
+        fixture.grant(&fixture.root);
+        let scope = fixture
+            .grants
+            .document_scope_for_bundle(&fixture.root)
+            .unwrap();
+        declare_evidence(&fixture, "../delivery/occupancy.md");
+        let reader = read_bundle(&fixture.root, &scope);
+        assert_eq!(
+            reader.evidence_links["project"].state,
+            DocumentLinkState::OutsideScope
+        );
+        assert!(declared_evidence_path(
+            &fixture.grants,
+            &fixture.root,
+            "project",
+            "../delivery/occupancy.md"
+        )
+        .unwrap_err()
+        .contains("outside the opened folder"));
+
+        for evidence in [
+            "https://github.com/example/repo/pull/7",
+            "requirements/workflow.md",
+            "../delivery/run.json",
+        ] {
+            declare_evidence(&fixture, evidence);
+            assert!(
+                read_bundle(&fixture.root, &scope).evidence_links.is_empty(),
+                "{evidence} is not a local Markdown record outside the bundle"
+            );
+            assert!(
+                declared_evidence_path(&fixture.grants, &fixture.root, "project", evidence)
+                    .is_err()
+            );
+        }
     }
 }

@@ -375,7 +375,7 @@ describe("focused reviewer shell", () => {
       name: "Enable read-only Git",
     }));
     await waitFor(() => {
-      expect(trust).toHaveBeenCalledWith(MOCK_BUNDLE.root, repositoryRoot);
+      expect(trust).toHaveBeenCalledWith(MOCK_BUNDLE.root, repositoryRoot, {});
     });
     await waitFor(() => {
       expect(screen.queryByRole("dialog", {

@@ -1,7 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { CheckCircle2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Bundle, Concept } from "@/shared/types.ts";
+import type { Bundle, BundleGitStatus, Concept } from "@/shared/types.ts";
 import { reviewConceptPreflight } from "@/shared/ipc.ts";
 import { useApp } from "@/shared/store.tsx";
 import type { ReviewPreflight } from "@/features/review/types.ts";
@@ -10,6 +10,13 @@ import {
   conceptReviewState,
   reviewStateLabel,
 } from "@/features/review/state.ts";
+import {
+  comparisonLabel,
+  conceptChange,
+  featureReviewBatch,
+  nextOutstanding,
+  shortRevision,
+} from "@/features/review/batch.ts";
 import "@/shared/styles/baseui.css";
 import "@/shared/styles/chrome.css";
 import "./ReviewAction.css";
@@ -24,6 +31,23 @@ function preflightKey(bundle: Bundle, concept: Concept, reviewerId: string): str
     JSON.stringify(concept.verified),
     reviewerId,
   ].join("\0");
+}
+
+/** What changed in this concept since the comparison base, in one phrase. */
+function changeDescription(conceptId: string, status: BundleGitStatus): string | null {
+  const change = conceptChange(conceptId, status);
+  if (!change) return null;
+  const since = `since ${shortRevision(status.baseRevision)} (${comparisonLabel(status)})`;
+  switch (change.kind) {
+    case "unchanged":
+      return `No changes ${since}`;
+    case "metadata":
+      return `Wording unchanged ${since}; only metadata changed`;
+    case "wording":
+      return change.passages > 0
+        ? `${change.passages} changed passage${change.passages === 1 ? "" : "s"} ${since}`
+        : `Wording changed ${since}`;
+  }
 }
 
 export function ReviewStateBadge({ concept }: { concept: Concept }) {
@@ -57,7 +81,8 @@ export function ReviewAction({
   const [setupOpen, setSetupOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  // Keyed by concept: the reader keeps this action mounted across navigation.
+  const [notice, setNotice] = useState<{ conceptId: string; message: string } | null>(null);
   const [preflightAttempt, setPreflightAttempt] = useState(0);
   const [reviewerId, setReviewerId] = useState(state.settings.reviewerId);
   const [reviewerName, setReviewerName] = useState(state.settings.reviewerName);
@@ -95,7 +120,7 @@ export function ReviewAction({
 
   function openConfirmation() {
     setError("");
-    setNotice("");
+    setNotice(null);
     if (!state.settings.reviewerId.trim()) {
       setReviewerId("");
       setReviewerName(state.settings.reviewerName);
@@ -152,7 +177,7 @@ export function ReviewAction({
         expectedFingerprint: preflight.fingerprint,
         reviewedAt: preflight.reviewedAt,
       });
-      setNotice(result.message);
+      setNotice({ conceptId: concept.id, message: result.message });
       setConfirmOpen(false);
       setBusy(false);
     } catch (cause) {
@@ -166,6 +191,9 @@ export function ReviewAction({
   }
 
   const unavailable = preflight !== null && !preflight.available;
+  // The reviewer's own stamp already covers this exact wording: acknowledge
+  // the finished work rather than presenting it as a blocker.
+  const acknowledged = unavailable && preflight.reasonCode === "already-reviewed";
   const disabledReason = checking
     ? "Checking whether this concept can be reviewed."
     : (preflightError || error) && !confirmOpen && !setupOpen
@@ -173,6 +201,15 @@ export function ReviewAction({
       : unavailable
         ? preflight.message
         : undefined;
+  const recorded = notice?.conceptId === concept.id ? notice : null;
+  // A just-recorded review's notice supersedes the acknowledgement it causes.
+  const showReason = Boolean(disabledReason) && !(acknowledged && recorded);
+  const batch = featureReviewBatch(bundle, state.bundleGitStatus);
+  const inBatch = batch.items.some((item) => item.concept.id === concept.id);
+  const remaining = batch.outstanding.filter((item) => item.concept.id !== concept.id).length;
+  const next = recorded ? nextOutstanding(batch, concept.id, [concept.id]) : null;
+  const change = changeDescription(concept.id, state.bundleGitStatus);
+  const contentHash = preflight?.contentSha256 ?? concept.contentSha256 ?? null;
 
   return (
     <>
@@ -181,16 +218,25 @@ export function ReviewAction({
           ref={confirmRef}
           type="button"
           className="review-action"
+          data-acknowledged={acknowledged || undefined}
           disabled={checking || unavailable || preflight === null}
           title={disabledReason}
-          aria-describedby={disabledReason ? "review-action-reason" : undefined}
+          aria-describedby={showReason ? "review-action-reason" : undefined}
           onClick={openConfirmation}
         >
           <CheckCircle2 size={15} aria-hidden="true" />
-          {checking ? "Checking review…" : (preflight?.actionLabel ?? "Review unavailable")}
+          {checking
+            ? "Checking review…"
+            : acknowledged
+              ? "Reviewed by you"
+              : (preflight?.actionLabel ?? "Review unavailable")}
         </button>
-        {disabledReason ? (
-          <span id="review-action-reason" className="review-action-reason" role="status">
+        {showReason ? (
+          <span
+            id="review-action-reason"
+            className={`review-action-reason${acknowledged ? " is-acknowledged" : ""}`}
+            role="status"
+          >
             {disabledReason}
             {preflightError && (
               <button type="button" className="btn ghost" onClick={() => {
@@ -200,10 +246,25 @@ export function ReviewAction({
             )}
           </span>
         ) : null}
-        {notice ? (
+        {recorded ? (
           <span className="review-action-notice" role="status">
-            {notice}
+            {recorded.message}
+            {inBatch
+              ? remaining > 0
+                ? ` ${remaining} of ${batch.items.length} changed document${batch.items.length === 1 ? "" : "s"} still need${remaining === 1 ? "s" : ""} review.`
+                : " Every changed document in this feature review now has a current review."
+              : ""}
           </span>
+        ) : null}
+        {next ? (
+          <button
+            type="button"
+            className="btn ghost review-action-next"
+            title={`${next.title} — ${next.id}.md`}
+            onClick={() => actions.selectConcept(next.id)}
+          >
+            Next: <span>{next.title}</span>
+          </button>
         ) : null}
       </div>
 
@@ -304,7 +365,9 @@ export function ReviewAction({
               <div>
                 <Dialog.Title>Confirm human review</Dialog.Title>
                 <Dialog.Description>
-                  This changes one local OKF concept after you confirm.
+                  You approve the wording of this document&apos;s body, not its code,
+                  metadata, implementation, or deployment. Confirming changes one local
+                  OKF concept.
                 </Dialog.Description>
               </div>
               <button
@@ -327,6 +390,21 @@ export function ReviewAction({
                     <dt>File</dt>
                     <dd><code>{preflight.relativePath}</code></dd>
                   </div>
+                  <div>
+                    <dt>Approves</dt>
+                    <dd>
+                      Body wording{" "}
+                      {contentHash ? (
+                        <code title={contentHash}>sha256 {contentHash.slice(0, 12)}…</code>
+                      ) : null}
+                    </dd>
+                  </div>
+                  {change ? (
+                    <div>
+                      <dt>Changes</dt>
+                      <dd>{change}</dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt>Lifecycle</dt>
                     <dd>

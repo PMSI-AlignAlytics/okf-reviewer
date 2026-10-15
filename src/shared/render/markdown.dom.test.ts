@@ -301,7 +301,9 @@ describe("renderMarkdown long responses", () => {
     expect(html).toContain("Finding 1:");
     expect(html).toContain("Finding 2000:");
     expect(html).not.toContain("<script");
-  });
+    // Rendering and sanitizing 2,000 items takes about 2 s alone in jsdom and
+    // exceeded the 5 s default while the unit and component lanes share CPUs.
+  }, 15_000);
 });
 
 describe("renderMarkdown color decoration", () => {

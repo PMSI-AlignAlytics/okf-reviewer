@@ -1,15 +1,15 @@
 ---
 type: Feature
 title: Review Workspace Usability
-description: Search, review triage, interface enlargement, settings recovery, and workspace continuity.
+description: Search, review triage, feature review batches, interface enlargement, settings recovery, and workspace continuity.
 tags:
   - feature
   - reader
   - accessibility
   - review
 generated:
-  by: codex/gpt-6
-  at: 2026-10-08T18:34:35Z
+  by: claude-code/claude-opus-5-5
+  at: 2026-10-15T13:34:35Z
 status: draft
 ---
 
@@ -34,6 +34,73 @@ together, and matching concepts can be opened from either sidebar lens.
 Changed indicates membership in the Git comparison batch; Review indicates
 that human verification is needed; Reviewed identifies current verification.
 Lifecycle status and human verification remain separate.
+
+## Feature review
+
+When Git is available, the navigation lens opens with a Feature review panel.
+On a feature branch it compares the bundle with the default branch's merge
+base; otherwise it compares the working tree with `HEAD`. The changed concepts
+form one review batch.
+
+- *Compare with* replaces that automatic base with a recent commit in the
+  branch's history, such as the approved specification commit, so a second
+  review shows only what changed since approval. The choice is saved per bundle
+  and branch in local settings. A saved commit that is no longer in the
+  branch's history is not used; the panel says so and uses the automatic base.
+- A changed concept is *outstanding* until its lifecycle is stable and a human
+  review covers its current body: the rule the OKF review check applies to
+  pull requests. The changed, reviewed, and outstanding counts each list their
+  documents. Every entry says whether its wording changed or only its
+  metadata, and why it is still outstanding.
+- Removed documents and changed concepts that are now deprecated take no stamp,
+  so they are listed separately for an impact check with the number of current
+  documents linking to them. A deprecated concept opens in the reader; a
+  removed one shows its last committed Markdown source, read-only.
+- *Next outstanding* opens the next outstanding concept in bundle order. After
+  a review is recorded, the reader reports how many changed documents still
+  need review and offers the next one.
+- Reviews present only in the working tree are flagged until they are
+  committed, because a commit is what makes an approval durable in Git.
+- When nothing is outstanding, *Copy review record* copies a Markdown record:
+  the comparison base (and the automatic base when a commit was selected),
+  `HEAD`, whether bundle documents differ from `HEAD`, each concept's body
+  SHA-256, lifecycle, and current review, and the removed and deprecated
+  documents with what links to them. Copying approves nothing.
+
+The panel, the reader, and the review confirmation share one definition of the
+batch. None of them writes to Git or to the bundle. The review gate's decision
+table is kept in `src/features/review/review-gate-cases.json` so the analytics
+starter pack's validator can assert the same cases.
+
+## Reviewing a changed concept
+
+- A concept whose frontmatter changed but whose body did not says that only
+  metadata changed, so a reviewer does not look for missing underlines.
+- When the wording changed, the reader names the unchanged concepts that link
+  to it: their text is the same, but their meaning may not be. A changed
+  deprecated concept names every concept that links to it.
+- While a concept is outstanding review work, speed reading leaves the reader
+  header so the review action is not presented beside a skimming control. It
+  remains available from Reading preferences and its keyboard shortcut.
+- *Give feedback* is the counterpart to the review action. It copies the
+  concept path, the body SHA-256 read, an optional selected passage, and the
+  reviewer's note for whoever authored the concept, asking for a revision
+  without a stamp. It never writes to the bundle and adds no workflow state.
+- The [human review operation](../review-operation.md) confirmation states what
+  a review approves, and an unchanged approval by the same reviewer is
+  acknowledged rather than stamped again.
+- A concept with an optional `implementation` pointer to a recorded check shows
+  an *Implementation evidence* card: whether the check covered the current
+  body hash or an earlier wording, when and by whom it was recorded, the
+  checked code, and the evidence record. An HTTPS record, such as the pull
+  request, opens in the browser; a record that is a concept in the bundle opens
+  in the reader. A local Markdown delivery record outside the bundle, such as
+  one under `knowledge/delivery/`, opens in the default app when it is inside
+  the opened folder, under the same native checks as a linked document. A
+  record outside the opened folder, missing, or not Markdown is named with a
+  reason and its path can be copied. The card offers no acceptance action: a
+  recorded check is not implementation acceptance. A pointer that does not match the expected
+  shape lists its problems and stays visible under Concept metadata.
 
 ## Interface size and keyboard access
 

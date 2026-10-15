@@ -300,18 +300,28 @@ function unavailableBundleGitStatus(): BundleGitStatus {
     currentBranch: null,
     defaultBranch: null,
     baseRevision: null,
+    defaultBaseRevision: null,
+    baseSubject: null,
+    baselineNotice: null,
     modifiedConceptIds: [],
+    bodyChangedConceptIds: [],
     deletedPaths: [],
     lineChangesByConcept: {},
+    uncommittedConceptIds: [],
+    uncommittedReviewConceptIds: [],
+    uncommittedDeletedPaths: [],
     trustRequired: false,
     repositoryRoot: null,
     message: null,
   };
 }
 
-async function loadBundleGitStatus(root: string): Promise<BundleGitStatus> {
+async function loadBundleGitStatus(
+  root: string,
+  baselines: Record<string, string>,
+): Promise<BundleGitStatus> {
   try {
-    return await ipc.readBundleGitStatus(root);
+    return await ipc.readBundleGitStatus(root, baselines);
   } catch {
     return unavailableBundleGitStatus();
   }
@@ -582,6 +592,11 @@ export interface Actions {
   selectBundle(root: string, folder?: string): Promise<Bundle | null>;
   reloadActiveBundle(): Promise<Bundle | null>;
   refreshBundleGitStatus(): Promise<void>;
+  /**
+   * Compare the feature review batch with `revision` on the current branch, or
+   * with the automatic base when null. Saved per bundle and branch.
+   */
+  setReviewBaseline(revision: string | null): Promise<void>;
   reviewConcept(input: ReviewConceptRequest): Promise<ReviewConceptResult>;
   trustActiveRepository(repositoryRoot: string): Promise<void>;
   openRecentBundle(entry: RecentBundle): Promise<void>;
@@ -624,6 +639,7 @@ export interface Actions {
   flushSettings(): Promise<void>;
   openExternal(url: string): void;
   openLinkedDocument(root: string, fromId: string, href: string): Promise<void>;
+  openEvidenceDocument(root: string, conceptId: string, href: string): Promise<void>;
 }
 
 const StateContext = createContext<State | null>(null);
@@ -644,6 +660,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   });
+  // The reviewer's saved comparison commits for one bundle, keyed by branch.
+  const baselinesFor = (root: string) =>
+    stateRef.current.settings.reviewBaselines[root] ?? {};
 
   const [actions] = useState<Actions>(() => {
     const appActions: Actions = {
@@ -671,7 +690,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           const [bundle, gitStatus] = await Promise.all([
             ipc.readBundle(root),
-            loadBundleGitStatus(root),
+            loadBundleGitStatus(root, baselinesFor(root)),
           ]);
           dispatch({ type: "set-bundle", root, bundle });
           dispatch({ type: "set-bundle-git-status", root, status: gitStatus });
@@ -700,7 +719,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!root) return null;
         const [bundle, gitStatus] = await Promise.all([
           ipc.readBundle(root),
-          loadBundleGitStatus(root),
+          loadBundleGitStatus(root, baselinesFor(root)),
         ]);
         dispatch({ type: "set-bundle", root, bundle });
         dispatch({ type: "set-bundle-git-status", root, status: gitStatus });
@@ -709,7 +728,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       async refreshBundleGitStatus() {
         const root = stateRef.current.activeRoot;
         if (!root) return;
-        const status = await loadBundleGitStatus(root);
+        const status = await loadBundleGitStatus(root, baselinesFor(root));
+        dispatch({ type: "set-bundle-git-status", root, status });
+      },
+      async setReviewBaseline(revision) {
+        const root = stateRef.current.activeRoot;
+        const branch = stateRef.current.bundleGitStatus.currentBranch;
+        if (!root || !branch) return;
+        const forBundle: Record<string, string> = Object.fromEntries([
+          ...Object.entries(baselinesFor(root)).filter(([name]) => name !== branch),
+          ...(revision ? [[branch, revision] as const] : []),
+        ]);
+        appActions.updateSettings({
+          reviewBaselines: Object.fromEntries([
+            ...Object.entries(stateRef.current.settings.reviewBaselines)
+              .filter(([bundleRoot]) => bundleRoot !== root),
+            ...(Object.keys(forBundle).length > 0 ? [[root, forBundle] as const] : []),
+          ]),
+        });
+        const status = await loadBundleGitStatus(root, forBundle);
         dispatch({ type: "set-bundle-git-status", root, status });
       },
       async reviewConcept(input) {
@@ -717,7 +754,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (stateRef.current.activeRoot === input.bundleRoot) {
           const [bundle, gitStatus] = await Promise.all([
             ipc.readBundle(input.bundleRoot),
-            loadBundleGitStatus(input.bundleRoot),
+            loadBundleGitStatus(input.bundleRoot, baselinesFor(input.bundleRoot)),
           ]);
           dispatch({ type: "set-bundle", root: input.bundleRoot, bundle });
           dispatch({
@@ -731,7 +768,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       async trustActiveRepository(repositoryRoot) {
         const root = stateRef.current.activeRoot;
         if (!root) throw new Error("No bundle is currently open.");
-        const status = await ipc.trustBundleRepository(root, repositoryRoot);
+        const status = await ipc.trustBundleRepository(root, repositoryRoot, baselinesFor(root));
         dispatch({ type: "set-bundle-git-status", root, status });
       },
       async openRecentBundle(entry) {
@@ -1165,6 +1202,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openExternal(url) {
         void ipc.openExternal(url);
       },
+      openEvidenceDocument(root, conceptId, href) {
+        return ipc.openEvidenceDocument(root, conceptId, href);
+      },
       openLinkedDocument(root, fromId, href) {
         return ipc.openLinkedDocument(root, fromId, href);
       },
@@ -1251,7 +1291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let dispose: (() => void) | undefined;
     void ipc.startWatch(root, () => {
-      void Promise.all([ipc.readBundle(root), loadBundleGitStatus(root)]).then(
+      void Promise.all([ipc.readBundle(root), loadBundleGitStatus(root, baselinesFor(root))]).then(
         ([bundle, gitStatus]) => {
           if (cancelled) return;
           dispatch({ type: "set-bundle", root, bundle });
@@ -1273,7 +1313,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const refreshGitStatus = () => {
       const root = stateRef.current.activeRoot;
       if (!root) return;
-      void loadBundleGitStatus(root).then((status) => {
+      void loadBundleGitStatus(root, baselinesFor(root)).then((status) => {
         dispatch({ type: "set-bundle-git-status", root, status });
       });
     };

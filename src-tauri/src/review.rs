@@ -51,6 +51,7 @@ pub enum ReviewProblemCode {
     InvalidReviewer,
     InvalidTimestamp,
     Deprecated,
+    AlreadyReviewed,
     Conflict,
     WriteFailed,
     CandidateInvalid,
@@ -92,6 +93,8 @@ pub struct ReviewPreflight {
     pub action_label: Option<String>,
     pub resulting_status: Option<String>,
     pub reviewed_at: String,
+    /// SHA-256 of the Markdown body a confirmed review would approve.
+    pub content_sha256: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -119,8 +122,35 @@ struct ValidConcept {
     mapping: Mapping,
     status: String,
     status_explicit: bool,
-    human_actors: Vec<String>,
+    human_reviews: Vec<HumanReview>,
     verification_count: usize,
+}
+
+struct HumanReview {
+    actor: String,
+    at: String,
+    content_sha256: Option<String>,
+}
+
+impl ValidConcept {
+    /// When `actor` last approved exactly this body, if it has.
+    fn approved_at(&self, actor: &str, content_hash: &str) -> Option<&str> {
+        self.human_reviews
+            .iter()
+            .filter(|review| {
+                review.actor == actor && review.content_sha256.as_deref() == Some(content_hash)
+            })
+            .map(|review| review.at.as_str())
+            .max_by(|left, right| {
+                match (
+                    OffsetDateTime::parse(left, &Rfc3339),
+                    OffsetDateTime::parse(right, &Rfc3339),
+                ) {
+                    (Ok(left), Ok(right)) => left.cmp(&right),
+                    _ => left.cmp(right),
+                }
+            })
+    }
 }
 
 struct PreparedConcept {
@@ -139,6 +169,7 @@ pub fn preflight(
 ) -> Result<ReviewPreflight, ReviewProblem> {
     let prepared = prepare_concept(bundle_root, concept_id)?;
     let fingerprint = fingerprint(&prepared.bytes);
+    let content_hash = body_sha256(&prepared.text);
     let reviewed_at = now_rfc3339()?;
     let parsed = parse_valid_concept(&prepared.text);
     let valid = match parsed {
@@ -158,6 +189,7 @@ pub fn preflight(
                 action_label: None,
                 resulting_status: None,
                 reviewed_at,
+                content_sha256: content_hash,
             });
         }
     };
@@ -171,6 +203,7 @@ pub fn preflight(
                     prepared.relative_path,
                     fingerprint,
                     reviewed_at,
+                    content_hash,
                     &valid,
                     problem,
                 ));
@@ -178,9 +211,12 @@ pub fn preflight(
         },
         None => None,
     };
-    let reviewer_has_reviewed = actor
-        .as_ref()
-        .is_some_and(|actor| valid.human_actors.iter().any(|existing| existing == actor));
+    let reviewer_has_reviewed = actor.as_ref().is_some_and(|actor| {
+        valid
+            .human_reviews
+            .iter()
+            .any(|existing| &existing.actor == actor)
+    });
 
     if valid.status == "deprecated" {
         return Ok(unavailable(
@@ -188,6 +224,7 @@ pub fn preflight(
             prepared.relative_path,
             fingerprint,
             reviewed_at,
+            content_hash,
             &valid,
             ReviewProblem::new(
                 ReviewProblemCode::Deprecated,
@@ -196,11 +233,28 @@ pub fn preflight(
         ));
     }
 
+    if let Some(problem) = actor
+        .as_deref()
+        .and_then(|actor| already_reviewed(&valid, actor, &content_hash))
+    {
+        let mut result = unavailable(
+            concept_id,
+            prepared.relative_path,
+            fingerprint,
+            reviewed_at,
+            content_hash,
+            &valid,
+            problem,
+        );
+        result.reviewer_has_reviewed = true;
+        return Ok(result);
+    }
+
     let action_label = if reviewer_has_reviewed {
         "Review again"
     } else if valid.status != "stable" {
         "Mark reviewed and stable"
-    } else if valid.human_actors.is_empty() {
+    } else if valid.human_reviews.is_empty() {
         "Mark as reviewed"
     } else {
         "Add my review"
@@ -212,9 +266,9 @@ pub fn preflight(
         available: true,
         reason_code: None,
         message: if valid.status_explicit {
-            "This app will append a human verification record.".to_string()
+            "This app will append a human verification record. Frontmatter YAML may be reformatted; the Markdown body is preserved.".to_string()
         } else {
-            "Status is implicitly stable. This review will author status: stable and append a human verification record.".to_string()
+            "Status is implicitly stable. This review will author status: stable and append a human verification record. Frontmatter YAML may be reformatted; the Markdown body is preserved.".to_string()
         },
         concept_id: concept_id.to_string(),
         relative_path: prepared.relative_path,
@@ -226,6 +280,7 @@ pub fn preflight(
         action_label: Some(action_label.to_string()),
         resulting_status: Some("stable".to_string()),
         reviewed_at,
+        content_sha256: content_hash,
     })
 }
 
@@ -261,11 +316,13 @@ fn apply_with_failure(
             "Deprecated concepts are historical. Review is unavailable by default.",
         ));
     }
+    let content_hash = body_sha256(&prepared.text);
+    if let Some(problem) = already_reviewed(&valid, &actor, &content_hash) {
+        return Err(problem);
+    }
 
     let mut updated = valid.mapping.clone();
     updated.insert(yaml_key("status"), Value::String("stable".to_string()));
-    let (_, body) = okf_core::frontmatter::split(&prepared.text);
-    let content_hash = okf_core::content_sha256(body);
     append_verification(&mut updated, &actor, &input.reviewed_at, &content_hash)?;
 
     let serialized = serialize_mapping(&updated, envelope.newline)?;
@@ -362,7 +419,27 @@ fn apply_with_failure(
         actor,
         reviewed_at: input.reviewed_at.clone(),
         verification_count,
-        message: "Human review recorded. YAML presentation may be normalized; the Markdown body and unrelated values were preserved.".to_string(),
+        message: "Human review recorded.".to_string(),
+    })
+}
+
+/// A stable concept this actor already approved, body unchanged, gains nothing
+/// from another identical stamp. A different lifecycle still needs the review.
+fn already_reviewed(
+    valid: &ValidConcept,
+    actor: &str,
+    content_hash: &str,
+) -> Option<ReviewProblem> {
+    if valid.status != "stable" {
+        return None;
+    }
+    valid.approved_at(actor, content_hash).map(|at| {
+        ReviewProblem::new(
+            ReviewProblemCode::AlreadyReviewed,
+            format!(
+                "You approved this exact wording at {at}. Review again after the body changes."
+            ),
+        )
     })
 }
 
@@ -371,6 +448,7 @@ fn unavailable(
     relative_path: String,
     fingerprint: String,
     reviewed_at: String,
+    content_sha256: String,
     valid: &ValidConcept,
     problem: ReviewProblem,
 ) -> ReviewPreflight {
@@ -388,6 +466,7 @@ fn unavailable(
         action_label: None,
         resulting_status: None,
         reviewed_at,
+        content_sha256,
     }
 }
 
@@ -582,11 +661,11 @@ fn validate_mapping(mapping: Mapping) -> Result<ValidConcept, ReviewProblem> {
         }
     };
 
-    let mut human_actors = Vec::new();
+    let mut human_reviews = Vec::new();
     let verification_count = match mapping.get(yaml_key("verified")) {
         None => 0,
         Some(Value::Mapping(entry)) => {
-            validate_verification(entry, &mut human_actors)?;
+            validate_verification(entry, &mut human_reviews)?;
             1
         }
         Some(Value::Sequence(entries)) => {
@@ -597,7 +676,7 @@ fn validate_mapping(mapping: Mapping) -> Result<ValidConcept, ReviewProblem> {
                         "Every verified entry must be a { by, at } mapping.",
                     )
                 })?;
-                validate_verification(entry, &mut human_actors)?;
+                validate_verification(entry, &mut human_reviews)?;
             }
             entries.len()
         }
@@ -613,14 +692,14 @@ fn validate_mapping(mapping: Mapping) -> Result<ValidConcept, ReviewProblem> {
         mapping,
         status,
         status_explicit,
-        human_actors,
+        human_reviews,
         verification_count,
     })
 }
 
 fn validate_verification(
     entry: &Mapping,
-    human_actors: &mut Vec<String>,
+    human_reviews: &mut Vec<HumanReview>,
 ) -> Result<(), ReviewProblem> {
     let by = entry
         .get(yaml_key("by"))
@@ -651,7 +730,14 @@ fn validate_verification(
         )
     })?;
     if by.starts_with("human:") {
-        human_actors.push(by.to_string());
+        human_reviews.push(HumanReview {
+            actor: by.to_string(),
+            at: at.to_string(),
+            content_sha256: entry
+                .get(yaml_key("content_sha256"))
+                .and_then(Value::as_str)
+                .map(|hash| hash.trim().to_ascii_lowercase()),
+        });
     }
     Ok(())
 }
@@ -787,13 +873,19 @@ fn now_rfc3339() -> Result<String, ReviewProblem> {
 }
 
 fn review_state(valid: &ValidConcept) -> String {
-    if !valid.human_actors.is_empty() {
+    if !valid.human_reviews.is_empty() {
         "human-reviewed".to_string()
     } else if valid.verification_count > 0 {
         "machine-confirmed".to_string()
     } else {
         "unverified".to_string()
     }
+}
+
+/// The SHA-256 of the Markdown body that a human review approves.
+fn body_sha256(text: &str) -> String {
+    let (_, body) = okf_core::frontmatter::split(text);
+    okf_core::content_sha256(body)
 }
 
 fn fingerprint(bytes: &[u8]) -> String {
@@ -946,6 +1038,11 @@ mod tests {
         assert_eq!(preflight.current_status.as_deref(), Some("stable"));
         assert_eq!(preflight.status_explicit, Some(false));
         assert_eq!(preflight.action_label.as_deref(), Some("Mark as reviewed"));
+        assert_eq!(
+            preflight.content_sha256,
+            okf_core::content_sha256("# Body\nExact bytes.\n"),
+            "the confirmation names the body the review will approve"
+        );
 
         let result =
             apply(fixture.path(), &confirmed(&fixture, "note", "sam")).expect("review succeeds");
@@ -1035,6 +1132,65 @@ mod tests {
         assert_eq!(machine.action_label.as_deref(), Some("Mark as reviewed"));
         assert_eq!(human.review_state.as_deref(), Some("human-reviewed"));
         assert_eq!(human.action_label.as_deref(), Some("Review again"));
+    }
+
+    #[test]
+    fn acknowledges_an_unchanged_approval_instead_of_stamping_it_again() {
+        let fixture = Fixture::new("already-reviewed");
+        let body = "# Body\nApproved wording.\n";
+        let hash = okf_core::content_sha256(body);
+        let stamped = format!(
+            "---\ntype: Note\nstatus: stable\nverified:\n- by: human:alex\n  at: 2026-07-30T09:10:11Z\n  content_sha256: {hash}\n---\n{body}"
+        );
+        fixture.write("stable", stamped.as_bytes());
+        fixture.write(
+            "draft",
+            stamped
+                .replace("status: stable", "status: draft")
+                .as_bytes(),
+        );
+        fixture.write(
+            "edited",
+            stamped
+                .replace("Approved wording.", "Edited wording.")
+                .as_bytes(),
+        );
+
+        let mine = preflight(fixture.path(), "stable", Some("alex")).expect("own approval");
+        assert!(!mine.available);
+        assert_eq!(mine.reason_code, Some(ReviewProblemCode::AlreadyReviewed));
+        assert!(mine.reviewer_has_reviewed);
+        assert_eq!(mine.content_sha256, hash);
+        assert!(mine.message.contains("2026-07-30T09:10:11Z"));
+
+        let other = preflight(fixture.path(), "stable", Some("sam")).expect("second reviewer");
+        assert!(other.available, "another reviewer can still add a review");
+        assert_eq!(other.action_label.as_deref(), Some("Add my review"));
+
+        let draft = preflight(fixture.path(), "draft", Some("alex")).expect("draft");
+        assert!(draft.available, "a lifecycle change still needs the review");
+        assert_eq!(draft.action_label.as_deref(), Some("Review again"));
+
+        let edited = preflight(fixture.path(), "edited", Some("alex")).expect("edited");
+        assert!(edited.available, "changed wording needs a new review");
+
+        let original = fs::read(fixture.path().join("stable.md")).expect("original");
+        let error = apply(
+            fixture.path(),
+            &ReviewConceptInput {
+                bundle_root: fixture.path().display().to_string(),
+                concept_id: "stable".to_string(),
+                reviewer_id: "alex".to_string(),
+                expected_fingerprint: mine.fingerprint,
+                reviewed_at: "2026-10-14T09:00:00Z".to_string(),
+            },
+        )
+        .expect_err("a redundant stamp is refused");
+        assert_eq!(error.code, ReviewProblemCode::AlreadyReviewed);
+        assert_eq!(
+            fs::read(fixture.path().join("stable.md")).expect("unchanged"),
+            original
+        );
     }
 
     #[test]
