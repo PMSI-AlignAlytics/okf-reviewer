@@ -187,7 +187,9 @@ describe("feature review workflow", () => {
     const dialog = await screen.findByRole("dialog", { name: "Give feedback" });
     expect(within(dialog).getByRole("textbox", { name: "Passage (optional)" }))
       .toHaveValue(paragraph.textContent.trim());
-    expect(within(dialog).getByRole("textbox", { name: "What should change" })).toHaveFocus();
+    // The dialog moves focus after it opens; slower runners need a moment.
+    await waitFor(() =>
+      expect(within(dialog).getByRole("textbox", { name: "What should change" })).toHaveFocus());
 
     await user.click(within(dialog).getByRole("button", { name: "Copy feedback" }));
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Describe what should change before copying.");
