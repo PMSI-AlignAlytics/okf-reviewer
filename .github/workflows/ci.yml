@@ -90,6 +90,8 @@ jobs:
       # releases in a row were bumped by hand with nothing checking they agreed,
       # A disagreement is silent until an installer exposes the wrong version.
       - run: pnpm check:version
+      # `tauri build` rejects npm/crate major.minor drift; CI never runs it.
+      - run: pnpm check:tauri-versions
       - run: pnpm check:updates
 
       # docs/ is the product spec and the app's built-in sample, so malformed
