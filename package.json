@@ -76,7 +76,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
     "@vitest/browser-playwright": "^4.1.11",
-    "@vitest/eslint-plugin": "^1.6.23",
+    "@vitest/eslint-plugin": "^1.6.27",
     "axe-core": "^4.12.1",
     "babel-plugin-react-compiler": "^1",
     "eslint": "^10.8.0",
