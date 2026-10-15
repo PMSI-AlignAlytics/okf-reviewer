@@ -35,6 +35,12 @@
       "version": "0.9.0",
       "reason": "Inherited Tauri/GTK build dependency; maintenance notice without a reported vulnerability. No compatible maintained replacement is available in this dependency chain.",
       "review_by": "2027-01-08"
+    },
+    "RUSTSEC-2024-0449": {
+      "package": "unsafe-libyaml",
+      "version": "0.2.11",
+      "reason": "Runtime YAML parser and emitter behind serde_yaml_ng 0.10.0, which the native review writer uses for frontmatter. Maintenance notice without a reported vulnerability; serde_yaml_ng has no release without it. Accepted briefly while a migration to a maintained YAML library is reviewed separately.",
+      "review_by": "2026-11-15"
     }
   }
 }
