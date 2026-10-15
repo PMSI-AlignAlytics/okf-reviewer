@@ -90,7 +90,7 @@
     "storybook": "^10.6.1",
     "typescript": "^5.9.3",
     "typescript-7": "npm:typescript@^7.0.2",
-    "typescript-eslint": "^8.65.0",
+    "typescript-eslint": "^8.71.1",
     "vite": "^6.4.4",
     "vitest": "^4.1.11"
   }
