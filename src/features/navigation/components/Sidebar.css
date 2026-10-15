@@ -97,6 +97,110 @@
   min-height: 24px;
 }
 
+/* Each count lists its documents; the pressed count reads as selected. */
+.sb-review-batch__count {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 24px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.sb-review-batch__count:hover:not(:disabled) {
+  background: var(--el-hover);
+}
+
+.sb-review-batch__count[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--el-hover);
+  color: var(--text);
+}
+
+.sb-review-batch__count:disabled {
+  cursor: default;
+}
+
+.sb-review-batch__list {
+  margin: 0;
+}
+
+.sb-review-batch__note {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: var(--lh-normal);
+}
+
+/* Native select: keyboard and screen-reader behaviour come for free. */
+.sb-review-batch__baseline {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-dim);
+}
+
+.sb-review-batch__baseline select {
+  min-width: 0;
+  min-height: 24px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.sb-review-batch__next {
+  min-width: 0;
+  justify-content: flex-start;
+  font-size: var(--fs-xs);
+}
+
+.sb-review-batch__next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.sb-review-batch__uncommitted {
+  margin: 0;
+  color: var(--warn);
+  line-height: var(--lh-normal);
+}
+
+.sb-review-batch__complete {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+}
+
+.sb-review-batch__complete p {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: 0;
+  color: var(--ok);
+  line-height: var(--lh-normal);
+}
+
+.sb-review-batch__complete p svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.sb-review-batch__complete .btn {
+  font-size: var(--fs-xs);
+}
+
+.sb-review-batch__complete [role="status"]:empty {
+  display: none;
+}
+
 /* Collapsible top-level sections. */
 .sb-collapsible {
   display: flex;

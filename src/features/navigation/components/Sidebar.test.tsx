@@ -5,7 +5,7 @@ import { WithStore } from "@/mock/withStore.tsx";
 import { MOCK_BUNDLE } from "@/mock/fixture.ts";
 import * as ipc from "@/shared/ipc.ts";
 import { useApp } from "@/shared/store.tsx";
-import type { Bundle, Concept, IndexNode } from "@/shared/types.ts";
+import type { Bundle, BundleGitStatus, Concept, IndexNode } from "@/shared/types.ts";
 import { DEFAULT_SETTINGS } from "@/shared/types.ts";
 import { Sidebar } from "./Sidebar.tsx";
 
@@ -84,9 +84,13 @@ function NavigationHarness() {
   );
 }
 
-async function renderNavigation(uiScale = 1) {
-  vi.spyOn(ipc, "loadSettings").mockResolvedValue({ ...DEFAULT_SETTINGS, uiScale });
-  vi.spyOn(ipc, "readBundle").mockResolvedValue(bundle);
+async function renderNavigation(
+  uiScale = 1,
+  git: Partial<BundleGitStatus> = {},
+  fixture: Bundle = bundle,
+) {
+  vi.spyOn(ipc, "loadSettings").mockResolvedValue({ ...DEFAULT_SETTINGS, uiScale, reviewerId: "alex" });
+  vi.spyOn(ipc, "readBundle").mockResolvedValue(fixture);
   vi.spyOn(ipc, "readBundleGitStatus").mockResolvedValue({
     available: true,
     headRevision: "abcdef0123456789",
@@ -99,6 +103,7 @@ async function renderNavigation(uiScale = 1) {
     trustRequired: false,
     repositoryRoot: bundle.root,
     message: null,
+    ...git,
   });
   render(<WithStore withBundle><NavigationHarness /></WithStore>);
   await screen.findByRole("searchbox", { name: "Search and filter concepts" });
@@ -223,5 +228,119 @@ describe("sidebar matching concepts", () => {
     const pending = screen.getByRole("treeitem", { name: /^Reference/ });
     expect(within(pending).getByText("Changed")).toBeInTheDocument();
     expect(within(pending).getByText("Review", { exact: true })).toBeInTheDocument();
+  });
+
+  it("queues changed documents by the review gate and lists deprecated ones for an impact check", async () => {
+    const user = userEvent.setup();
+    await renderNavigation(1, {
+      bodyChangedConceptIds: ["guides/deep/nested", "archive/old"],
+    });
+    const panel = await screen.findByRole("region", { name: "Feature review batch" });
+    const counts = within(panel).getByRole("group", { name: "Feature review documents" });
+    expect(within(counts).getByRole("button", { name: "2 changed" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(counts).getByRole("button", { name: "0 reviewed" })).toBeDisabled();
+    expect(within(counts).getByRole("button", { name: "2 outstanding" }))
+      .toHaveAttribute("title", expect.stringContaining("lifecycle is stable and a human review covers the current body"));
+    expect(within(panel).getByText("1 wording · 1 metadata only")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Copy review record" })).not.toBeInTheDocument();
+
+    await user.click(within(counts).getByRole("button", { name: "2 outstanding" }));
+    const outstanding = within(panel).getByRole("list", { name: "Outstanding documents" });
+    expect(within(outstanding).getAllByRole("button").map((item) => item.textContent)).toEqual([
+      "ReferenceWording · needs review",
+      "Reviewed guideMetadata only · reviewed, still draft",
+    ]);
+
+    await user.click(within(counts).getByRole("button", { name: "1 removed or deprecated" }));
+    expect(within(panel).getByText("No stamp applies to these documents. Check what linked to them."))
+      .toBeInTheDocument();
+    const retired = within(panel).getByRole("list", { name: "Removed or deprecated documents" });
+    await user.click(within(retired).getByRole("button", { name: "Historical guide Deprecated" }));
+    expect(screen.getByLabelText("Active concept")).toHaveTextContent("archive/old");
+
+    await user.click(within(panel).getByRole("button", { name: "Next outstanding: Reference" }));
+    expect(screen.getByLabelText("Active concept")).toHaveTextContent("guides/deep/nested");
+    expect(within(panel).getByRole("button", { name: "Next outstanding: Reviewed guide" })).toBeInTheDocument();
+  });
+
+  it("copies a completed batch as a review record and flags uncommitted reviews", async () => {
+    const user = userEvent.setup();
+    await renderNavigation(1, {
+      modifiedConceptIds: ["guides/reviewed"],
+      bodyChangedConceptIds: ["guides/reviewed"],
+      deletedPaths: ["guides/retired.md"],
+      uncommittedConceptIds: ["guides/reviewed"],
+      uncommittedReviewConceptIds: ["guides/reviewed"],
+      uncommittedDeletedPaths: [],
+    }, {
+      ...bundle,
+      concepts: bundle.concepts.map((item) =>
+        item.id === "guides/reviewed" ? { ...item, status: "stable" as const } : item
+      ),
+    });
+    const panel = await screen.findByRole("region", { name: "Feature review batch" });
+    expect(within(panel).getByText(/1 review is not committed yet\./)).toBeInTheDocument();
+    expect(within(panel).getByText("All 1 changed document is stable with a current review.")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Next outstanding/ })).not.toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "Copy review record" }));
+    expect(await within(panel).findByText("Review record copied.")).toBeInTheDocument();
+    const record = await navigator.clipboard.readText();
+    expect(record).toContain("- HEAD: `abcdef0123456789`");
+    expect(record).toContain("1 bundle document differs from HEAD, including 1 uncommitted review.");
+    expect(record).toContain("by human:alex");
+    expect(record).toContain(
+      "| `guides/reviewed.md` | `unavailable` | Wording | stable | Current by timestamp: human:reviewer at 2026-07-02T00:00:00Z |",
+    );
+    expect(record).toContain("- `guides/retired.md`: removed");
+  });
+
+  it("compares with a saved commit for the current branch and explains a refused one", async () => {
+    const user = userEvent.setup();
+    const approved = "f".repeat(40);
+    const branchBase = "b".repeat(40);
+    vi.spyOn(ipc, "quizGitRevisions").mockResolvedValue([
+      { id: approved, shortId: "fffffff", subject: "Approve occupancy spec", timestamp: 2 },
+      { id: branchBase, shortId: "bbbbbbb", subject: "Start feature", timestamp: 1 },
+    ]);
+    await renderNavigation(1, {
+      comparisonMode: "feature-branch",
+      currentBranch: "feature/spec",
+      baseRevision: branchBase,
+      defaultBaseRevision: branchBase,
+      baselineNotice: "The saved comparison commit 12345678 is not in this branch's history, so the branch base is used instead.",
+    });
+    const panel = await screen.findByRole("region", { name: "Feature review batch" });
+    expect(within(panel).getByRole("status")).toHaveTextContent("so the branch base is used instead.");
+    const select = within(panel).getByRole("combobox", { name: "Compare with" });
+    expect(ipc.quizGitRevisions).not.toHaveBeenCalled();
+    await user.hover(select);
+    await waitFor(() => expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Automatic: branch base · bbbbbbbb",
+      "fffffff · Approve occupancy spec",
+    ]));
+
+    const read = vi.mocked(ipc.readBundleGitStatus);
+    await user.selectOptions(select, approved);
+    await waitFor(() => expect(read).toHaveBeenLastCalledWith(bundle.root, { "feature/spec": approved }));
+    await user.selectOptions(select, "");
+    await waitFor(() => expect(read).toHaveBeenLastCalledWith(bundle.root, {}));
+  });
+
+  it("shows the last committed text of a removed document", async () => {
+    const user = userEvent.setup();
+    const removed = vi.spyOn(ipc, "readRemovedBundleDocument")
+      .mockResolvedValue("---\ntype: Guide\n---\n# Retired guide\n\nOld rule.\n");
+    await renderNavigation(1, { modifiedConceptIds: [], deletedPaths: ["guides/retired.md"] });
+    const panel = await screen.findByRole("region", { name: "Feature review batch" });
+    expect(within(panel).getByText("No changed document needs a stamp.")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "1 removed or deprecated" }));
+    await user.click(within(panel).getByRole("button", { name: "guides/retired.md Removed · view last version" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Removed: guides/retired.md" });
+    expect(await within(dialog).findByLabelText("Last version of guides/retired.md")).toHaveTextContent("# Retired guide");
+    expect(removed).toHaveBeenCalledWith(bundle.root, "abcdef0123456789", "guides/retired.md");
+    await user.click(within(dialog).getByRole("button", { name: "Close removed document" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

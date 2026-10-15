@@ -740,22 +740,24 @@ impl QuizRuntimeState {
         let bundle_context_documents = bundle_context.len();
         let bundle_context_bytes = bundle_context.iter().map(|file| file.contents.len()).sum();
         let repository_context = match repository_root {
-            Some(repository) => match git::bundle_status(root, repository, &bundle) {
-                Ok(status) => Some(QuizRepositoryContext {
-                    working_directory: repository.to_string_lossy().into_owned(),
-                    comparison_mode: status.comparison_mode,
-                    current_branch: status.current_branch,
-                    default_branch: status.default_branch,
-                    base_revision: status.base_revision,
-                    head_revision: status.head_revision,
-                }),
-                Err(error) if input.generation.mode == QuizGenerationMode::Automatic => {
-                    return Err(format!(
+            Some(repository) => {
+                match git::bundle_status(root, repository, &bundle, &BTreeMap::new()) {
+                    Ok(status) => Some(QuizRepositoryContext {
+                        working_directory: repository.to_string_lossy().into_owned(),
+                        comparison_mode: status.comparison_mode,
+                        current_branch: status.current_branch,
+                        default_branch: status.default_branch,
+                        base_revision: status.base_revision,
+                        head_revision: status.head_revision,
+                    }),
+                    Err(error) if input.generation.mode == QuizGenerationMode::Automatic => {
+                        return Err(format!(
                         "Automatic quiz generation could not inspect the trusted Git repository: {error}"
                     ));
+                    }
+                    Err(_) => None,
                 }
-                Err(_) => None,
-            },
+            }
             None => None,
         };
         let (question_count_policy, requested_question_count, requested_difficulty) =
@@ -1982,8 +1984,8 @@ fn prepare_reviewed_since_commit_scope(
         validate_concept_id(&concept.id)?;
         let path = format!("{}.md", concept.id);
         let base_markdown = git_optional_review_document(repository, base, bundle_relative, &path)?;
-        let base_reviews = human_review_counts_from_markdown(base_markdown.as_deref());
-        let current_reviews = human_review_counts(&concept.verified);
+        let base_reviews = git::human_review_counts_from_markdown(base_markdown.as_deref());
+        let current_reviews = git::human_review_counts(&concept.verified);
         let has_new_review = current_reviews
             .iter()
             .any(|(event, count)| *count > base_reviews.get(event).copied().unwrap_or(0));
@@ -2101,39 +2103,6 @@ fn prepare_reviewed_since_commit_scope(
         omitted,
         format!("{base_short}..WORKTREE"),
     ))
-}
-
-fn human_review_counts(
-    reviews: &[okf_core::model::Attribution],
-) -> BTreeMap<(String, Option<String>), usize> {
-    let mut counts = BTreeMap::new();
-    for review in reviews
-        .iter()
-        .filter(|review| review.is_human() && review.at.is_some())
-    {
-        *counts
-            .entry((review.by.clone(), review.at.clone()))
-            .or_insert(0) += 1;
-    }
-    counts
-}
-
-fn human_review_counts_from_markdown(
-    markdown: Option<&str>,
-) -> BTreeMap<(String, Option<String>), usize> {
-    let Some(markdown) = markdown else {
-        return BTreeMap::new();
-    };
-    let (Some(raw), _) = okf_core::frontmatter::split(markdown) else {
-        return BTreeMap::new();
-    };
-    let parsed = okf_core::frontmatter::parse(raw);
-    let reviews = parsed
-        .entries("verified")
-        .into_iter()
-        .filter_map(okf_core::frontmatter::ParsedFrontmatter::attribution)
-        .collect::<Vec<_>>();
-    human_review_counts(&reviews)
 }
 
 fn git_optional_review_document(

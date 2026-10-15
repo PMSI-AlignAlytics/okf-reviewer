@@ -375,6 +375,11 @@ export interface Bundle {
   confidence: Confidence;
   /** Authored Markdown references resolved by the native folder grant. */
   documentLinks?: Record<string, { href: string; state: "available" | "outside-scope" }[]>;
+  /**
+   * Local delivery records named by `implementation.evidence`, by concept ID,
+   * when they are Markdown documents outside the bundle.
+   */
+  evidenceLinks?: Record<string, { href: string; state: "available" | "outside-scope" | "missing" }>;
 }
 
 /** One current-side Git hunk mapped into the parsed Markdown body. */
@@ -390,14 +395,31 @@ export interface GitLineChange {
 export interface BundleGitStatus {
   available: boolean;
   headRevision: string | null;
-  comparisonMode: "unavailable" | "feature-branch" | "working-tree";
+  comparisonMode: "unavailable" | "feature-branch" | "working-tree" | "selected-commit";
   currentBranch: string | null;
   defaultBranch: string | null;
   baseRevision: string | null;
+  /** The automatic base: the default-branch merge base, or HEAD. */
+  defaultBaseRevision?: string | null;
+  /** Subject line of the comparison base commit. */
+  baseSubject?: string | null;
+  /** Why a saved comparison commit was not used, when it was not. */
+  baselineNotice?: string | null;
   modifiedConceptIds: string[];
+  /**
+   * Modified concepts whose Markdown body (the reviewed wording) differs from
+   * the comparison base; the others changed frontmatter only.
+   */
+  bodyChangedConceptIds?: string[];
   deletedPaths: string[];
   /** Current-side Git hunks, after old and current frontmatter are removed. */
   lineChangesByConcept?: Record<string, GitLineChange[]>;
+  /** Concepts whose file differs from HEAD, including untracked concepts. */
+  uncommittedConceptIds?: string[];
+  /** Uncommitted concepts with human verification events absent from HEAD. */
+  uncommittedReviewConceptIds?: string[];
+  /** Concept paths deleted relative to HEAD. */
+  uncommittedDeletedPaths?: string[];
   trustRequired: boolean;
   repositoryRoot: string | null;
   message: string | null;
@@ -459,6 +481,11 @@ export interface Settings {
   speedReadChunk: ReaderChunk;
   /** Bold the opening letters of each word while pacing. Off by default. */
   speedReadBoldStart: boolean;
+  /**
+   * Feature review comparison commits chosen by the reviewer, keyed by bundle
+   * root and then branch. A missing entry uses the automatic base.
+   */
+  reviewBaselines: Record<string, Record<string, string>>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -477,4 +504,5 @@ export const DEFAULT_SETTINGS: Settings = {
   speedReadWpm: 300,
   speedReadChunk: 1,
   speedReadBoldStart: false,
+  reviewBaselines: {},
 };

@@ -124,7 +124,11 @@ describe("human concept review MVP", () => {
         expectedFingerprint: "fixture-fingerprint",
         reviewedAt: "2026-07-30T09:10:11Z",
       }));
-    expect(await screen.findByText("Human review recorded.")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Human review recorded. Every changed document in this feature review now has a current review.",
+      ),
+    ).toBeInTheDocument();
     const reviewedModified = await screen.findByRole("treeitem", {
       name: /Overview Modified in the current Git review batch Human reviewed; changed in the current Git review batch/i,
     });

@@ -12,6 +12,7 @@ export type ReviewProblemCode =
   | "invalid-reviewer"
   | "invalid-timestamp"
   | "deprecated"
+  | "already-reviewed"
   | "conflict"
   | "write-failed"
   | "candidate-invalid";
@@ -41,6 +42,8 @@ export interface ReviewPreflight {
   actionLabel: string | null;
   resultingStatus: "stable" | null;
   reviewedAt: string;
+  /** SHA-256 of the Markdown body a confirmed review would approve. */
+  contentSha256?: string;
 }
 
 export interface ReviewConceptRequest {

@@ -25,7 +25,7 @@ of the exact path; trust stays app-local and never changes Git configuration.
 # Reader
 
 * [Change Comparison](features/change-comparison.md) - How the reader previews and compares a changed passage with its earlier version from the read-only Git diff.
-* [Review Workspace Usability](features/review-usability.md) - Search, review triage, interface enlargement, settings recovery, and workspace continuity.
+* [Review Workspace Usability](features/review-usability.md) - Search, review triage, feature review batches, interface enlargement, settings recovery, and workspace continuity.
 
 # Quiz feature
 

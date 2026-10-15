@@ -77,7 +77,10 @@ describe("reader suspension across workspaces", () => {
     vi.spyOn(PacerIndex.prototype, "rect").mockReturnValue(null);
     await openConcept(user);
     if (mode === "focus") {
-      await user.click(screen.getByRole("button", { name: "Speed-read this concept" }));
+      // Graph View is outstanding review work in the mock batch, so the focus
+      // player starts from Reading preferences rather than the header.
+      await user.click(screen.getByRole("button", { name: "Reading preferences" }));
+      await user.click(await screen.findByRole("button", { name: "Focus" }));
       await screen.findByRole("dialog", { name: "Speed reading: Graph View" });
     } else {
       await user.click(screen.getByRole("button", { name: "Reading preferences" }));

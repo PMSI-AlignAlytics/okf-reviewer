@@ -1,0 +1,244 @@
+{
+  "description": "Decision table for whether a human review covers a concept's current body (human_review: current or review) and how a changed concept is gated (gate: pass, block, or manual). The OKF Reviewer asserts it in src/features/review/reviewGate.test.ts; the analytics starter pack's validator (--review-changed) should assert the same cases. Hashes are SHA-256 of the body with CRLF normalized to LF. A deprecated concept is gated like a removed one: it is listed for manual impact review rather than stamped.",
+  "cases": [
+    {
+      "name": "implicit stable lifecycle with a review of the current body",
+      "frontmatter": {
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "explicit stable lifecycle with a review of the current body",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "draft lifecycle blocks despite a current review",
+      "frontmatter": {
+        "status": "draft",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7e140e7c43efe5f8fd3e599c3d0a6630dd82e83de6729fa9ddc77750d4430df7"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled and no-show bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "block"
+    },
+    {
+      "name": "body edited after the latest review",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled and no-show bookings must be excluded.\n",
+      "human_review": "review",
+      "gate": "block"
+    },
+    {
+      "name": "any review of the current body counts, not only the latest",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          },
+          {
+            "by": "human:sam",
+            "at": "2026-10-03T00:00:00Z",
+            "content_sha256": "7e140e7c43efe5f8fd3e599c3d0a6630dd82e83de6729fa9ddc77750d4430df7"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "stamp hash case and spacing are normalized",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": " 7F2DF4F3DD93D098F8D5CE54CED70A842B26A7C4AE1E2E95A1B5455FAFC4A598 "
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "CRLF body matches a review of the LF body",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\r\n\r\nCancelled bookings must be excluded.\r\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "legacy review without a hash after generation",
+      "frontmatter": {
+        "status": "stable",
+        "generated": {
+          "by": "agent/1",
+          "at": "2026-10-01T00:00:00Z"
+        },
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "legacy review without a hash at the generation instant",
+      "frontmatter": {
+        "status": "stable",
+        "generated": {
+          "by": "agent/1",
+          "at": "2026-10-01T00:00:00Z"
+        },
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "legacy review without a hash before generation",
+      "frontmatter": {
+        "status": "stable",
+        "generated": {
+          "by": "agent/1",
+          "at": "2026-10-01T00:00:00Z"
+        },
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-09-30T00:00:00Z"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "review",
+      "gate": "block"
+    },
+    {
+      "name": "legacy review falls back to the v0.1 timestamp",
+      "frontmatter": {
+        "status": "stable",
+        "timestamp": "2026-10-01T00:00:00Z",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "pass"
+    },
+    {
+      "name": "machine verification is not human review",
+      "frontmatter": {
+        "status": "stable",
+        "verified": [
+          {
+            "by": "codex/gpt-6",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "review",
+      "gate": "block"
+    },
+    {
+      "name": "no verification",
+      "frontmatter": {
+        "status": "stable"
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "review",
+      "gate": "block"
+    },
+    {
+      "name": "deprecated with a current review is left for impact review",
+      "frontmatter": {
+        "status": "deprecated",
+        "verified": [
+          {
+            "by": "human:alex",
+            "at": "2026-10-02T00:00:00Z",
+            "content_sha256": "7f2df4f3dd93d098f8d5ce54ced70a842b26a7c4ae1e2e95a1b5455fafc4a598"
+          }
+        ]
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "current",
+      "gate": "manual"
+    },
+    {
+      "name": "deprecated without review is left for impact review",
+      "frontmatter": {
+        "status": "deprecated"
+      },
+      "body": "# Occupancy\n\nCancelled bookings must be excluded.\n",
+      "human_review": "review",
+      "gate": "manual"
+    }
+  ]
+}

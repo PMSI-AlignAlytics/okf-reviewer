@@ -25,9 +25,24 @@ pub struct BundleGitStatus {
     pub current_branch: Option<String>,
     pub default_branch: Option<String>,
     pub base_revision: Option<String>,
+    /// The automatic base: the default-branch merge base, or `HEAD`.
+    pub default_base_revision: Option<String>,
+    /// Subject line of the comparison base commit.
+    pub base_subject: Option<String>,
+    /// Why a saved comparison commit was not used, when it was not.
+    pub baseline_notice: Option<String>,
     pub modified_concept_ids: Vec<String>,
+    /// Modified concepts whose Markdown body (the reviewed wording) differs
+    /// from the comparison base. The rest changed frontmatter only.
+    pub body_changed_concept_ids: Vec<String>,
     pub deleted_paths: Vec<String>,
     pub line_changes_by_concept: BTreeMap<String, Vec<GitLineChange>>,
+    /// Concepts whose file differs from `HEAD`, including untracked concepts.
+    pub uncommitted_concept_ids: Vec<String>,
+    /// Uncommitted concepts carrying human verification events absent from `HEAD`.
+    pub uncommitted_review_concept_ids: Vec<String>,
+    /// Concept paths deleted relative to `HEAD`.
+    pub uncommitted_deleted_paths: Vec<String>,
     pub trust_required: bool,
     pub repository_root: Option<String>,
     pub message: Option<String>,
@@ -39,6 +54,9 @@ pub enum GitComparisonMode {
     Unavailable,
     FeatureBranch,
     WorkingTree,
+    /// A reviewer-selected commit in the current branch's history, such as
+    /// the approved specification commit.
+    SelectedCommit,
 }
 
 impl BundleGitStatus {
@@ -50,9 +68,16 @@ impl BundleGitStatus {
             current_branch: None,
             default_branch: None,
             base_revision: None,
+            default_base_revision: None,
+            base_subject: None,
+            baseline_notice: None,
             modified_concept_ids: Vec::new(),
+            body_changed_concept_ids: Vec::new(),
             deleted_paths: Vec::new(),
             line_changes_by_concept: BTreeMap::new(),
+            uncommitted_concept_ids: Vec::new(),
+            uncommitted_review_concept_ids: Vec::new(),
+            uncommitted_deleted_paths: Vec::new(),
             trust_required: false,
             repository_root: None,
             message: None,
@@ -74,9 +99,16 @@ impl BundleGitStatus {
             current_branch: None,
             default_branch: None,
             base_revision: None,
+            default_base_revision: None,
+            base_subject: None,
+            baseline_notice: None,
             modified_concept_ids: Vec::new(),
+            body_changed_concept_ids: Vec::new(),
             deleted_paths: Vec::new(),
             line_changes_by_concept: BTreeMap::new(),
+            uncommitted_concept_ids: Vec::new(),
+            uncommitted_review_concept_ids: Vec::new(),
+            uncommitted_deleted_paths: Vec::new(),
             trust_required: true,
             repository_root: Some(repository.to_string_lossy().into_owned()),
             message: Some(
@@ -150,63 +182,35 @@ pub fn head_revision(repository: &Path) -> Result<String, String> {
     Ok(revision.to_string())
 }
 
+/// Bundle changes relative to the automatic comparison base, or to the commit
+/// saved in `baselines` for the current branch when it is in that branch's
+/// history.
 pub fn bundle_status(
     root: &Path,
     repository: &Path,
     bundle: &Bundle,
+    baselines: &BTreeMap<String, String>,
 ) -> Result<BundleGitStatus, String> {
     let head_revision = head_revision(repository)?;
-    let comparison = comparison_base(repository, &head_revision)?;
+    let comparison = comparison_base(repository, &head_revision, baselines)?;
+    let base_subject = optional_text_with_safe_directory(
+        repository,
+        repository,
+        &[
+            "log",
+            "-1",
+            "--no-decorate",
+            "--format=%s",
+            &comparison.base_revision,
+        ],
+    )?;
     let known = bundle
         .concepts
         .iter()
         .map(|concept| concept.id.as_str())
         .collect::<BTreeSet<_>>();
-    let mut tracked_modified = BTreeSet::new();
-
-    let tracked = output_with_safe_directory(
-        root,
-        repository,
-        &[
-            "diff",
-            "--no-ext-diff",
-            "--no-textconv",
-            "--relative",
-            "--name-only",
-            "-z",
-            "--no-renames",
-            "--diff-filter=ACMRTUXB",
-            &comparison.base_revision,
-            "--",
-            ".",
-        ],
-    )?;
-    if !tracked.status.success() {
-        return Err("Git could not inspect tracked bundle changes.".to_string());
-    }
-    collect_concept_ids(&tracked.stdout, &known, &mut tracked_modified)?;
-
-    let deleted = output_with_safe_directory(
-        root,
-        repository,
-        &[
-            "diff",
-            "--no-ext-diff",
-            "--no-textconv",
-            "--relative",
-            "--name-only",
-            "-z",
-            "--no-renames",
-            "--diff-filter=D",
-            &comparison.base_revision,
-            "--",
-            ".",
-        ],
-    )?;
-    if !deleted.status.success() {
-        return Err("Git could not inspect deleted bundle documents.".to_string());
-    }
-    let deleted_paths = collect_deleted_paths(&deleted.stdout)?;
+    let (tracked_modified, deleted_paths) =
+        tracked_changes(root, repository, &comparison.base_revision, &known)?;
 
     let untracked = output_with_safe_directory(
         root,
@@ -230,10 +234,17 @@ pub fn bundle_status(
         .union(&untracked_modified)
         .cloned()
         .collect::<BTreeSet<_>>();
+    let concepts = bundle
+        .concepts
+        .iter()
+        .map(|concept| (concept.id.as_str(), concept))
+        .collect::<BTreeMap<_, _>>();
     let mut line_changes_by_concept = BTreeMap::new();
+    let mut body_changed = BTreeSet::new();
     for concept_id in &modified {
         let path = format!("{concept_id}.md");
-        let document_changes = if untracked_modified.contains(concept_id) {
+        let untracked = untracked_modified.contains(concept_id);
+        let document_changes = if untracked {
             None
         } else {
             Some(changed_document_line_changes(
@@ -243,21 +254,19 @@ pub fn bundle_status(
                 &path,
             )?)
         };
-        let base_text = match document_changes.as_deref() {
-            Some(changes)
-                if changes
-                    .iter()
-                    .any(|change| !change.previous_lines.is_empty()) =>
-            {
-                Some(base_document(
-                    root,
-                    repository,
-                    &comparison.base_revision,
-                    &path,
-                )?)
-            }
-            _ => None,
+        // Absent at the base means the document was added since: all new wording.
+        let base_text = if untracked {
+            None
+        } else {
+            revision_document(root, repository, &comparison.base_revision, &path)?
         };
+        let wording_changed = match (base_text.as_deref(), concepts.get(concept_id.as_str())) {
+            (Some(base), Some(concept)) => body_sha256(base) != concept.content_sha256,
+            _ => true,
+        };
+        if wording_changed {
+            body_changed.insert(concept_id.clone());
+        }
         let changes = body_line_changes(
             root,
             &path,
@@ -269,6 +278,41 @@ pub fn bundle_status(
         }
     }
 
+    // Reviews become durable when committed, so report what still differs
+    // from HEAD separately from the (possibly older) comparison base.
+    let (head_modified, uncommitted_deleted_paths) = if comparison.base_revision == head_revision {
+        (tracked_modified.clone(), deleted_paths.clone())
+    } else {
+        tracked_changes(root, repository, &head_revision, &known)?
+    };
+    let uncommitted = head_modified
+        .union(&untracked_modified)
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let mut uncommitted_reviews = Vec::new();
+    for concept_id in &uncommitted {
+        let Some(concept) = concepts.get(concept_id.as_str()) else {
+            continue;
+        };
+        let committed = if untracked_modified.contains(concept_id) {
+            None
+        } else {
+            revision_document(
+                root,
+                repository,
+                &head_revision,
+                &format!("{concept_id}.md"),
+            )?
+        };
+        let committed_reviews = human_review_counts_from_markdown(committed.as_deref());
+        if human_review_counts(&concept.verified)
+            .iter()
+            .any(|(event, count)| *count > committed_reviews.get(event).copied().unwrap_or(0))
+        {
+            uncommitted_reviews.push(concept_id.clone());
+        }
+    }
+
     Ok(BundleGitStatus {
         available: true,
         head_revision: Some(head_revision),
@@ -276,13 +320,114 @@ pub fn bundle_status(
         current_branch: comparison.current_branch,
         default_branch: comparison.default_branch,
         base_revision: Some(comparison.base_revision),
+        default_base_revision: Some(comparison.default_base_revision),
+        base_subject,
+        baseline_notice: comparison.notice,
         modified_concept_ids: modified.into_iter().collect(),
+        body_changed_concept_ids: body_changed.into_iter().collect(),
         deleted_paths,
         line_changes_by_concept,
+        uncommitted_concept_ids: uncommitted.into_iter().collect(),
+        uncommitted_review_concept_ids: uncommitted_reviews,
+        uncommitted_deleted_paths,
         trust_required: false,
         repository_root: Some(repository.to_string_lossy().into_owned()),
         message: None,
     })
+}
+
+/// Current concepts changed and concept paths deleted relative to `revision`,
+/// including uncommitted working-tree changes.
+fn tracked_changes(
+    root: &Path,
+    repository: &Path,
+    revision: &str,
+    known: &BTreeSet<&str>,
+) -> Result<(BTreeSet<String>, Vec<String>), String> {
+    let tracked = output_with_safe_directory(
+        root,
+        repository,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--relative",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--diff-filter=ACMRTUXB",
+            revision,
+            "--",
+            ".",
+        ],
+    )?;
+    if !tracked.status.success() {
+        return Err("Git could not inspect tracked bundle changes.".to_string());
+    }
+    let mut modified = BTreeSet::new();
+    collect_concept_ids(&tracked.stdout, known, &mut modified)?;
+
+    let deleted = output_with_safe_directory(
+        root,
+        repository,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--relative",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--diff-filter=D",
+            revision,
+            "--",
+            ".",
+        ],
+    )?;
+    if !deleted.status.success() {
+        return Err("Git could not inspect deleted bundle documents.".to_string());
+    }
+    Ok((modified, collect_deleted_paths(&deleted.stdout)?))
+}
+
+/// SHA-256 of a Markdown document's body, as recorded by a human review.
+fn body_sha256(markdown: &str) -> String {
+    let (_, body) = okf_core::frontmatter::split(markdown);
+    okf_core::content_sha256(body)
+}
+
+/// Human verification events keyed by actor and time, counting duplicates.
+pub(crate) fn human_review_counts(
+    reviews: &[okf_core::model::Attribution],
+) -> BTreeMap<(String, Option<String>), usize> {
+    let mut counts = BTreeMap::new();
+    for review in reviews
+        .iter()
+        .filter(|review| review.is_human() && review.at.is_some())
+    {
+        *counts
+            .entry((review.by.clone(), review.at.clone()))
+            .or_insert(0) += 1;
+    }
+    counts
+}
+
+pub(crate) fn human_review_counts_from_markdown(
+    markdown: Option<&str>,
+) -> BTreeMap<(String, Option<String>), usize> {
+    let Some(markdown) = markdown else {
+        return BTreeMap::new();
+    };
+    let (Some(raw), _) = okf_core::frontmatter::split(markdown) else {
+        return BTreeMap::new();
+    };
+    let parsed = okf_core::frontmatter::parse(raw);
+    let reviews = parsed
+        .entries("verified")
+        .into_iter()
+        .filter_map(okf_core::frontmatter::ParsedFrontmatter::attribution)
+        .collect::<Vec<_>>();
+    human_review_counts(&reviews)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -326,7 +471,7 @@ fn changed_document_line_changes(
     Ok(parse_document_changes(&text))
 }
 
-fn base_document(root: &Path, repository: &Path, base: &str, path: &str) -> Result<String, String> {
+fn repository_document_path(root: &Path, repository: &Path, path: &str) -> Result<String, String> {
     let relative_root = root
         .strip_prefix(repository)
         .map_err(|_| "The bundle is outside the confirmed Git repository.".to_string())?;
@@ -336,11 +481,26 @@ fn base_document(root: &Path, repository: &Path, base: &str, path: &str) -> Resu
         .ok_or_else(|| "The bundle document path is not valid UTF-8.".to_string())?
         .replace('\\', "/");
     validate_relative_path(&document_path)?;
-    text_with_safe_directory(
+    Ok(document_path)
+}
+
+/// A bundle document at `revision`, or `None` when it did not exist there.
+fn revision_document(
+    root: &Path,
+    repository: &Path,
+    revision: &str,
+    path: &str,
+) -> Result<Option<String>, String> {
+    let document_path = repository_document_path(root, repository, path)?;
+    let output = output_with_safe_directory(
         repository,
         repository,
-        &["show", &format!("{base}:{document_path}")],
-    )
+        &["show", &format!("{revision}:{document_path}")],
+    )?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+    bounded_output(&output.stdout, "Git output").map(Some)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -349,9 +509,15 @@ struct ComparisonBase {
     current_branch: Option<String>,
     default_branch: Option<String>,
     base_revision: String,
+    default_base_revision: String,
+    notice: Option<String>,
 }
 
-fn comparison_base(repository: &Path, head_revision: &str) -> Result<ComparisonBase, String> {
+fn comparison_base(
+    repository: &Path,
+    head_revision: &str,
+    baselines: &BTreeMap<String, String>,
+) -> Result<ComparisonBase, String> {
     let current_branch = optional_text_with_safe_directory(
         repository,
         repository,
@@ -363,6 +529,8 @@ fn comparison_base(repository: &Path, head_revision: &str) -> Result<ComparisonB
         (Some(current), Some(default)) => current == default,
         _ => false,
     };
+    let mut mode = GitComparisonMode::WorkingTree;
+    let mut default_base_revision = head_revision.to_string();
     if let Some(default_ref) = default_ref.filter(|_| current_branch.is_some() && !on_default) {
         let merge_base = optional_text_with_safe_directory(
             repository,
@@ -370,20 +538,62 @@ fn comparison_base(repository: &Path, head_revision: &str) -> Result<ComparisonB
             &["merge-base", "HEAD", &default_ref],
         )?;
         if let Some(base_revision) = merge_base.filter(|value| !value.is_empty()) {
-            return Ok(ComparisonBase {
-                mode: GitComparisonMode::FeatureBranch,
-                current_branch,
-                default_branch,
-                base_revision,
-            });
+            mode = GitComparisonMode::FeatureBranch;
+            default_base_revision = base_revision;
         }
     }
+
+    let mut notice = None;
+    if let Some(selected) = current_branch
+        .as_deref()
+        .and_then(|branch| baselines.get(branch))
+    {
+        if selected_commit_in_history(repository, selected)? {
+            return Ok(ComparisonBase {
+                mode: GitComparisonMode::SelectedCommit,
+                current_branch,
+                default_branch,
+                base_revision: selected.clone(),
+                default_base_revision,
+                notice: None,
+            });
+        }
+        notice = Some(format!(
+            "The saved comparison commit {} is not in this branch's history, so {} is used instead.",
+            selected.chars().take(8).collect::<String>(),
+            if mode == GitComparisonMode::FeatureBranch {
+                "the branch base"
+            } else {
+                "HEAD"
+            }
+        ));
+    }
     Ok(ComparisonBase {
-        mode: GitComparisonMode::WorkingTree,
+        mode,
         current_branch,
         default_branch,
-        base_revision: head_revision.to_string(),
+        base_revision: default_base_revision.clone(),
+        default_base_revision,
+        notice,
     })
+}
+
+/// Whether `revision` is a full commit ID that `HEAD` descends from. Anything
+/// else, including an abbreviation or a commit from a rewritten history, is
+/// refused rather than guessed at.
+fn selected_commit_in_history(repository: &Path, revision: &str) -> Result<bool, String> {
+    let full =
+        matches!(revision.len(), 40 | 64) && revision.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if !full || !revision_exists(repository, revision)? {
+        return Ok(false);
+    }
+    Ok(output_with_safe_directory(
+        repository,
+        repository,
+        &["merge-base", "--is-ancestor", revision, "HEAD"],
+    )?
+    .status
+    .success())
 }
 
 fn default_branch_ref(repository: &Path) -> Result<Option<String>, String> {
@@ -623,6 +833,30 @@ pub fn changed_line_counts(
     Ok(counts)
 }
 
+/// The last committed text of a concept that has been removed from the
+/// working tree, read at `revision`. Current documents are refused: they open
+/// in the reader instead.
+pub fn deleted_document(
+    root: &Path,
+    repository: &Path,
+    revision: &str,
+    path: &str,
+) -> Result<String, String> {
+    if !(matches!(revision.len(), 40 | 64) && revision.bytes().all(|byte| byte.is_ascii_hexdigit()))
+    {
+        return Err("A full commit ID is required to read a removed document.".to_string());
+    }
+    validate_relative_path(path)?;
+    if concept_id(path).is_none() {
+        return Err("Only removed concept documents can be read.".to_string());
+    }
+    if std::fs::symlink_metadata(root.join(path)).is_ok() {
+        return Err("This document still exists. Open it in the reader instead.".to_string());
+    }
+    revision_document(root, repository, revision, path)?
+        .ok_or_else(|| "The removed document is not in that revision.".to_string())
+}
+
 pub fn output(directory: &Path, args: &[&str]) -> Result<Output, String> {
     output_inner(directory, None, args)
 }
@@ -821,7 +1055,8 @@ mod tests {
             .expect("outside change");
 
         let bundle = okf_core::read_bundle(&docs);
-        let status = bundle_status(&docs, &repository, &bundle).expect("bundle status");
+        let status =
+            bundle_status(&docs, &repository, &bundle, &BTreeMap::new()).expect("bundle status");
         assert!(status.available);
         assert_eq!(
             status.head_revision,
@@ -864,6 +1099,97 @@ mod tests {
             status.deleted_paths,
             vec!["deleted.md".to_string(), "old.md".to_string()]
         );
+        assert_eq!(
+            status.body_changed_concept_ids, status.modified_concept_ids,
+            "every fixture change rewrites its heading"
+        );
+        assert_eq!(
+            status.uncommitted_concept_ids, status.modified_concept_ids,
+            "working-tree comparisons are already relative to HEAD"
+        );
+        assert_eq!(status.uncommitted_deleted_paths, status.deleted_paths);
+        assert!(status.uncommitted_review_concept_ids.is_empty());
+
+        let _ = fs::remove_dir_all(repository);
+    }
+
+    #[test]
+    fn feature_status_separates_wording_from_metadata_and_finds_uncommitted_reviews() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let repository = std::env::temp_dir().join(format!(
+            "okf-review-feature-wording-{}-{nonce}",
+            std::process::id()
+        ));
+        let docs = repository.join("bundle");
+        fs::create_dir_all(&docs).expect("fixture directory");
+        fs::write(docs.join("index.md"), "# Fixture\n").expect("index");
+        let note = |front: &str, body: &str| format!("---\ntype: Note\n{front}---\n{body}");
+        fs::write(docs.join("wording.md"), note("", "# Wording\n\nBefore.\n")).expect("wording");
+        fs::write(docs.join("metadata.md"), note("", "# Metadata\n\nSame.\n")).expect("metadata");
+        fs::write(docs.join("stamped.md"), note("", "# Stamped\n\nSame.\n")).expect("stamped");
+        run_git(&repository, &["init", "--quiet", "--initial-branch=main"]);
+        run_git(
+            &repository,
+            &["config", "user.email", "fixture@example.com"],
+        );
+        run_git(&repository, &["config", "user.name", "Fixture"]);
+        run_git(&repository, &["config", "commit.gpgsign", "false"]);
+        run_git(&repository, &["add", "."]);
+        run_git(&repository, &["commit", "--quiet", "-m", "base"]);
+        run_git(
+            &repository,
+            &["checkout", "--quiet", "-b", "feature/wording"],
+        );
+
+        fs::write(docs.join("wording.md"), note("", "# Wording\n\nAfter.\n"))
+            .expect("wording change");
+        fs::write(
+            docs.join("metadata.md"),
+            note("owner: platform\n", "# Metadata\n\nSame.\n"),
+        )
+        .expect("metadata change");
+        run_git(&repository, &["add", "."]);
+        run_git(&repository, &["commit", "--quiet", "-m", "feature"]);
+        let stamped = note(
+            "status: stable\nverified:\n- by: human:alex\n  at: 2026-10-14T09:00:00Z\n",
+            "# Stamped\n\nSame.\n",
+        );
+        fs::write(docs.join("stamped.md"), &stamped).expect("uncommitted review");
+        fs::write(docs.join("draft.md"), note("", "# Draft\n")).expect("untracked");
+
+        let bundle = okf_core::read_bundle(&docs);
+        let status =
+            bundle_status(&docs, &repository, &bundle, &BTreeMap::new()).expect("feature status");
+        assert_eq!(status.comparison_mode, GitComparisonMode::FeatureBranch);
+        assert_eq!(
+            status.modified_concept_ids,
+            vec!["draft", "metadata", "stamped", "wording"]
+        );
+        assert_eq!(
+            status.body_changed_concept_ids,
+            vec!["draft", "wording"],
+            "frontmatter-only edits, including a review, leave the wording unchanged"
+        );
+        assert_eq!(status.uncommitted_concept_ids, vec!["draft", "stamped"]);
+        assert_eq!(status.uncommitted_review_concept_ids, vec!["stamped"]);
+        assert!(status.uncommitted_deleted_paths.is_empty());
+
+        run_git(&repository, &["add", "bundle/stamped.md"]);
+        run_git(&repository, &["commit", "--quiet", "-m", "review"]);
+        fs::remove_file(docs.join("metadata.md")).expect("uncommitted deletion");
+        let bundle = okf_core::read_bundle(&docs);
+        let committed =
+            bundle_status(&docs, &repository, &bundle, &BTreeMap::new()).expect("committed status");
+        assert_eq!(committed.uncommitted_concept_ids, vec!["draft"]);
+        assert!(
+            committed.uncommitted_review_concept_ids.is_empty(),
+            "a committed review is no longer pending"
+        );
+        assert_eq!(committed.uncommitted_deleted_paths, vec!["metadata.md"]);
+        assert_eq!(committed.deleted_paths, vec!["metadata.md"]);
 
         let _ = fs::remove_dir_all(repository);
     }
@@ -905,7 +1231,8 @@ mod tests {
         fs::write(docs.join("untracked.md"), concept("Untracked")).expect("untracked");
 
         let bundle = okf_core::read_bundle(&docs);
-        let status = bundle_status(&docs, &repository, &bundle).expect("feature status");
+        let status =
+            bundle_status(&docs, &repository, &bundle, &BTreeMap::new()).expect("feature status");
         assert_eq!(status.comparison_mode, GitComparisonMode::FeatureBranch);
         assert_eq!(status.current_branch.as_deref(), Some("feature/review"));
         assert_eq!(status.default_branch.as_deref(), Some("main"));
@@ -926,7 +1253,8 @@ mod tests {
         assert_eq!(status.deleted_paths, vec!["deleted.md".to_string()]);
 
         run_git(&repository, &["checkout", "--quiet", "--detach"]);
-        let detached = bundle_status(&docs, &repository, &bundle).expect("detached status");
+        let detached =
+            bundle_status(&docs, &repository, &bundle, &BTreeMap::new()).expect("detached status");
         assert_eq!(detached.comparison_mode, GitComparisonMode::WorkingTree);
         assert_eq!(detached.current_branch, None);
         assert_eq!(
@@ -1127,5 +1455,98 @@ mod tests {
             safe_directory_value(Path::new(r"C:\Fixtures\Knowledge Repo")).expect("safe directory"),
             "C:/Fixtures/Knowledge Repo"
         );
+    }
+
+    #[test]
+    fn selected_comparison_commit_must_be_in_the_branch_history() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let repository = std::env::temp_dir().join(format!(
+            "okf-review-selected-base-{}-{nonce}",
+            std::process::id()
+        ));
+        let docs = repository.join("bundle");
+        fs::create_dir_all(&docs).expect("fixture directory");
+        fs::write(docs.join("index.md"), "# Fixture\n").expect("index");
+        fs::write(docs.join("spec.md"), concept("Spec")).expect("spec");
+        fs::write(docs.join("retired.md"), concept("Retired")).expect("retired");
+        run_git(&repository, &["init", "--quiet", "--initial-branch=main"]);
+        run_git(
+            &repository,
+            &["config", "user.email", "fixture@example.com"],
+        );
+        run_git(&repository, &["config", "user.name", "Fixture"]);
+        run_git(&repository, &["config", "commit.gpgsign", "false"]);
+        run_git(&repository, &["add", "."]);
+        run_git(&repository, &["commit", "--quiet", "-m", "base"]);
+        let branch_base = run_git(&repository, &["rev-parse", "HEAD"]);
+        run_git(&repository, &["checkout", "--quiet", "-b", "feature/spec"]);
+        fs::write(docs.join("spec.md"), concept("Approved spec")).expect("approved");
+        run_git(&repository, &["commit", "--quiet", "-am", "Approve spec"]);
+        let approved = run_git(&repository, &["rev-parse", "HEAD"]);
+        fs::write(docs.join("spec.md"), concept("Implemented spec")).expect("discovery");
+        fs::remove_file(docs.join("retired.md")).expect("retire");
+
+        let bundle = okf_core::read_bundle(&docs);
+        let selected = BTreeMap::from([("feature/spec".to_string(), approved.clone())]);
+        let status =
+            bundle_status(&docs, &repository, &bundle, &selected).expect("selected status");
+        assert_eq!(status.comparison_mode, GitComparisonMode::SelectedCommit);
+        assert_eq!(status.base_revision.as_deref(), Some(approved.as_str()));
+        assert_eq!(
+            status.default_base_revision.as_deref(),
+            Some(branch_base.as_str())
+        );
+        assert_eq!(status.base_subject.as_deref(), Some("Approve spec"));
+        assert_eq!(status.baseline_notice, None);
+        assert_eq!(
+            status.line_changes_by_concept.get("spec"),
+            Some(&vec![GitLineChange {
+                start: 1,
+                end: 1,
+                previous_text: Some("# Approved spec".to_string()),
+            }]),
+            "only wording changed since the selected commit is marked"
+        );
+        assert_eq!(
+            deleted_document(&docs, &repository, &approved, "retired.md").expect("removed text"),
+            concept("Retired")
+        );
+        assert!(deleted_document(&docs, &repository, &approved, "spec.md").is_err());
+        assert!(deleted_document(&docs, &repository, &approved[..8], "retired.md").is_err());
+
+        // A commit beside the branch, not in its history.
+        let tree = run_git(
+            &repository,
+            &["rev-parse", &format!("{branch_base}^{{tree}}")],
+        );
+        let elsewhere = run_git(
+            &repository,
+            &["commit-tree", &tree, "-p", &branch_base, "-m", "Elsewhere"],
+        );
+        for refused in [elsewhere.as_str(), &approved[..12], "not-a-commit"] {
+            let saved = BTreeMap::from([("feature/spec".to_string(), refused.to_string())]);
+            let fallback = bundle_status(&docs, &repository, &bundle, &saved).expect("fallback");
+            assert_eq!(fallback.comparison_mode, GitComparisonMode::FeatureBranch);
+            assert_eq!(
+                fallback.base_revision.as_deref(),
+                Some(branch_base.as_str())
+            );
+            assert!(fallback
+                .baseline_notice
+                .as_deref()
+                .is_some_and(|notice| notice.contains("the branch base is used instead")));
+        }
+        let other_branch = BTreeMap::from([("feature/other".to_string(), approved)]);
+        let unrelated = bundle_status(&docs, &repository, &bundle, &other_branch).expect("other");
+        assert_eq!(unrelated.comparison_mode, GitComparisonMode::FeatureBranch);
+        assert_eq!(
+            unrelated.baseline_notice, None,
+            "only the current branch's choice applies"
+        );
+
+        let _ = fs::remove_dir_all(repository);
     }
 }

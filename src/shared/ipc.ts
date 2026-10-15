@@ -10,6 +10,7 @@ import type {
   BundleRoot,
   CompatibilityFinding,
   CompatibilityReport,
+  Concept,
   ProfileReport,
   RecentBundle,
   Settings,
@@ -103,21 +104,44 @@ export async function scanBundles(
   return invoke<BundleRoot[]>("scan_bundles", { folder, maxDepth });
 }
 
+// Browser-mode reviews replace this snapshot rather than mutating the shared
+// fixture, so a review yields a new bundle object and memoized views refresh,
+// as they do after a native reload.
+let mockBundle: Bundle = MOCK_BUNDLE;
+
 export async function readBundle(root: string): Promise<Bundle> {
-  if (!isTauri()) return MOCK_BUNDLE;
+  if (!isTauri()) return mockBundle;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<Bundle>("read_bundle", { root });
 }
 
-export async function readBundleGitStatus(root: string): Promise<BundleGitStatus> {
+/** `baselines` maps branch names to saved comparison commits for this bundle. */
+export async function readBundleGitStatus(
+  root: string,
+  baselines: Record<string, string> = {},
+): Promise<BundleGitStatus> {
   if (!isTauri()) return MOCK_GIT_STATUS;
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<BundleGitStatus>("read_bundle_git_status", { root });
+  return invoke<BundleGitStatus>("read_bundle_git_status", { root, baselines });
+}
+
+/** The last committed text of a concept removed from the working tree. */
+export async function readRemovedBundleDocument(
+  root: string,
+  revision: string,
+  path: string,
+): Promise<string> {
+  if (!isTauri()) {
+    return `---\ntype: Note\n---\n# ${path}\n\nThe browser preview has no Git history for removed documents.\n`;
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("read_removed_bundle_document", { root, revision, path });
 }
 
 export async function trustBundleRepository(
   root: string,
   repositoryRoot: string,
+  baselines: Record<string, string> = {},
 ): Promise<BundleGitStatus> {
   if (!isTauri()) {
     throw new Error("Repository trust is available only in the desktop app.");
@@ -126,6 +150,7 @@ export async function trustBundleRepository(
   return invoke<BundleGitStatus>("trust_bundle_repository", {
     root,
     repositoryRoot,
+    baselines,
   });
 }
 
@@ -423,7 +448,7 @@ export async function reviewConceptPreflight(
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<ReviewPreflight>("review_concept_preflight", { input });
   }
-  const concept = MOCK_BUNDLE.concepts.find((item) => item.id === input.conceptId);
+  const concept = mockBundle.concepts.find((item) => item.id === input.conceptId);
   if (!concept) {
     throw new MockReviewError("missing-concept", "The concept file is no longer available.");
   }
@@ -436,7 +461,12 @@ export async function reviewConceptPreflight(
     .filter((actor) => actor.startsWith("human:"));
   const actor = reviewer ? `human:${reviewer}` : null;
   const reviewerHasReviewed = actor !== null && humanActors.includes(actor);
-  const available = concept.status !== "deprecated" && reviewerValid;
+  const approval = concept.status === "stable" && concept.contentSha256
+    ? concept.verified.filter((entry) =>
+        entry.by === actor && entry.contentSha256 === concept.contentSha256
+      ).at(-1)
+    : undefined;
+  const available = concept.status !== "deprecated" && reviewerValid && !approval;
   const reviewedAt = new Date().toISOString();
   const actionLabel = reviewerHasReviewed
     ? "Review again"
@@ -451,14 +481,18 @@ export async function reviewConceptPreflight(
       ? "invalid-reviewer"
       : concept.status === "deprecated"
         ? "deprecated"
-        : null,
+        : approval
+          ? "already-reviewed"
+          : null,
     message: !reviewerValid
       ? "Reviewer ID contains unsupported characters."
       : concept.status === "deprecated"
         ? "Deprecated concepts are historical. Review is unavailable by default."
-        : concept.statusExplicit
-          ? "This app will append a human verification record."
-          : "Status is implicitly stable. This review will author status: stable and append a human verification record.",
+        : approval
+          ? `You approved this exact wording at ${approval.at}. Review again after the body changes.`
+          : concept.statusExplicit
+            ? "This app will append a human verification record. Frontmatter YAML may be reformatted; the Markdown body is preserved."
+            : "Status is implicitly stable. This review will author status: stable and append a human verification record. Frontmatter YAML may be reformatted; the Markdown body is preserved.",
     conceptId: concept.id,
     relativePath: `${concept.id}.md`,
     fingerprint: mockReviewFingerprint(concept.id),
@@ -474,6 +508,7 @@ export async function reviewConceptPreflight(
     actionLabel: available ? actionLabel : null,
     resultingStatus: available ? "stable" : null,
     reviewedAt,
+    contentSha256: concept.contentSha256,
   };
 }
 
@@ -484,7 +519,7 @@ export async function reviewConcept(
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<ReviewConceptResult>("review_concept", { input });
   }
-  const concept = MOCK_BUNDLE.concepts.find((item) => item.id === input.conceptId);
+  const concept = mockBundle.concepts.find((item) => item.id === input.conceptId);
   if (!concept) {
     throw new MockReviewError("missing-concept", "The concept file is no longer available.");
   }
@@ -499,9 +534,19 @@ export async function reviewConcept(
     throw new MockReviewError("invalid-reviewer", "Reviewer ID is invalid.");
   }
   const actor = `human:${reviewer}`;
-  concept.status = "stable";
-  concept.statusExplicit = true;
-  concept.verified.push({ by: actor, at: input.reviewedAt });
+  const reviewed: Concept = {
+    ...concept,
+    status: "stable",
+    statusExplicit: true,
+    verified: [
+      ...concept.verified,
+      { by: actor, at: input.reviewedAt, contentSha256: concept.contentSha256 ?? null },
+    ],
+  };
+  mockBundle = {
+    ...mockBundle,
+    concepts: mockBundle.concepts.map((item) => item.id === concept.id ? reviewed : item),
+  };
   return {
     conceptId: concept.id,
     relativePath: `${concept.id}.md`,
@@ -510,7 +555,7 @@ export async function reviewConcept(
     statusExplicit: true,
     actor,
     reviewedAt: input.reviewedAt,
-    verificationCount: concept.verified.length,
+    verificationCount: reviewed.verified.length,
     message: "Human review recorded.",
   };
 }
@@ -792,6 +837,17 @@ export async function openLinkedDocument(root: string, fromId: string, href: str
   if (!isTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke<null>("open_linked_document", { root, fromId, href });
+}
+
+/** Open the delivery record a concept's `implementation.evidence` names. */
+export async function openEvidenceDocument(
+  root: string,
+  conceptId: string,
+  href: string,
+): Promise<void> {
+  if (!isTauri()) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke<null>("open_evidence_document", { root, conceptId, href });
 }
 
 const STORE_FILE = "okf-review.json";

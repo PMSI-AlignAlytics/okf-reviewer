@@ -8,12 +8,16 @@ tags:
   - git
   - review
 generated:
-  by: codex/gpt-6
-  at: 2026-10-08T18:34:35Z
+  by: claude-code/claude-opus-5-5
+  at: 2026-10-15T10:06:51Z
 status: draft
 ---
 
 # Change Comparison
+
+The comparison base is the Feature review panel's: the default branch's merge
+base, `HEAD`, or a commit the reviewer selected in the branch's history (see
+[Review Workspace Usability](review-usability.md)).
 
 When a concept's Markdown differs from the Git comparison base, the reader
 marks and underlines the current text of each changed hunk. A hunk that replaced earlier
@@ -25,6 +29,11 @@ The comparison is built from the same read-only Git diff as the explorer's
 review markers. It never changes Git state or the bundle. It lets a reviewer see
 exactly what changed before recording a
 [human review](../review-operation.md).
+
+A concept can be in the comparison batch with an unchanged body, for example
+after a review or another frontmatter-only edit. The reader then says that only
+metadata changed and the wording is unchanged. Because a review approves the
+body, the batch counts these concepts separately from changed wording.
 
 ## Word changes
 

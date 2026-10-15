@@ -76,6 +76,12 @@ import {
   ReviewAction,
   ReviewStateBadge,
 } from "@/features/review/components/ReviewAction.tsx";
+import { FeedbackAction } from "@/features/review/components/FeedbackAction.tsx";
+import { conceptChange, reviewGate, shortRevision } from "@/features/review/batch.ts";
+import {
+  ImplementationEvidence,
+  parseImplementation,
+} from "@/features/reader/components/ImplementationEvidence.tsx";
 import { TypedRelationships } from "@/features/reader/components/TypedRelationships.tsx";
 import { ReliabilityNotice } from "@/features/reader/components/ReliabilityNotice.tsx";
 import { EvidencePanel } from "@/features/reader/components/EvidencePanel.tsx";
@@ -928,6 +934,26 @@ export function Reader() {
     }
   };
 
+  // Feature review context: what kind of change this concept carries since the
+  // Git comparison base, whether it is outstanding review work, and which
+  // unchanged documents link here and may change meaning with it.
+  const gitChange = conceptChange(c.id, state.bundleGitStatus);
+  const changedIds = new Set(state.bundleGitStatus.modifiedConceptIds);
+  const gate = reviewGate(c);
+  const awaitingReview = changedIds.has(c.id) && gate === "block";
+  // A changed deprecated concept, like a removed one, takes no stamp: every
+  // document linking to it needs checking. Changed wording points at the
+  // linking documents whose own wording did not change.
+  const deprecatedHere = changedIds.has(c.id) && gate === "manual";
+  const impactCiters = (deprecatedHere || gitChange?.kind === "wording") && bundle
+    ? c.citedBy
+        .filter((id) => deprecatedHere || !changedIds.has(id))
+        .map((id) => conceptById(bundle, id))
+        .filter((concept): concept is Concept => concept !== null)
+    : [];
+  const shownCiters = impactCiters.slice(0, 5);
+  const implementation = parseImplementation(c.extra.implementation);
+
   // Event delegation for body anchor clicks: route concept links in-app,
   // external links to the OS browser, and keep unresolved links inert.
   // Declared before onBodyClick (which calls it): the React Compiler cannot
@@ -1196,8 +1222,11 @@ export function Reader() {
                 {/* Speed reading needs a visible way in, not only the `S` key
                     and a control inside the "Aa" popover — a mode nobody can
                     see is a mode nobody starts. This runs the focus player;
-                    guided pacing and the pace itself stay in the popover. */}
-                <button
+                    guided pacing and the pace itself stay in the popover.
+                    Outstanding review work is the exception: beside the review
+                    action, a speed control suggests skimming is enough, so it
+                    steps back to the popover and the key until the review. */}
+                {!awaitingReview && <button
                   id="reader-speed-read"
                   type="button"
                   className="reader-speed-read"
@@ -1213,7 +1242,7 @@ export function Reader() {
                   <kbd className="kbd" aria-hidden="true">
                     S
                   </kbd>
-                </button>
+                </button>}
                 {readerActive && <ReaderPrefs
                   onStartSpeedRead={(mode) => setSpeedRequest({ conceptId: c.id, mode })}
                 />}
@@ -1229,6 +1258,7 @@ export function Reader() {
                 Quick quiz
               </button>
               <span className="reader-action-divider" aria-hidden="true" />
+              {bundle ? <FeedbackAction concept={c} /> : null}
               {bundle ? <ReviewAction bundle={bundle} concept={c} /> : null}
             </div>
           </div>
@@ -1266,6 +1296,34 @@ export function Reader() {
             <p className="git-diff-legend">
               <span className="git-diff-legend-sample">Underlined text</span> and marked blocks have changed.
               {lineChanges.some((change) => change.previousText != null) ? " Compare changes shows earlier wording." : " This text was added."}
+            </p>
+          )}
+          {gitChange?.kind === "metadata" && (
+            <p className="git-diff-legend">
+              Only metadata changed since {shortRevision(state.bundleGitStatus.baseRevision)}; the wording is unchanged.
+            </p>
+          )}
+          {shownCiters.length > 0 && (
+            <p className="git-diff-legend git-impact">
+              <strong>Impact:</strong>{" "}
+              {deprecatedHere
+                ? `Deprecated since ${shortRevision(state.bundleGitStatus.baseRevision)}, so no review stamp applies. ${impactCiters.length} document${impactCiters.length === 1 ? " links" : "s link"} here and may need updating: `
+                : `${impactCiters.length} unchanged document${impactCiters.length === 1 ? " links" : "s link"} here. Their wording did not change, but their meaning might have: `}
+              {shownCiters.map((citer, index) => (
+                <span key={citer.id}>
+                  {index > 0 ? ", " : ""}
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={(event) => select(citer.id, event)}
+                  >
+                    {citer.title}
+                  </button>
+                </span>
+              ))}
+              {impactCiters.length > shownCiters.length
+                ? `, and ${impactCiters.length - shownCiters.length} more under Cited by.`
+                : "."}
             </p>
           )}
           {readerActive && outline.length > 1 && (
@@ -1419,6 +1477,20 @@ export function Reader() {
             and whether it is still current outrank the producer keys it
             happens to carry. Renders nothing on a concept that declares none of
             it, so a v0.1 bundle does not grow an empty panel per concept. */}
+        {implementation ? (
+          <RailModule title="Implementation evidence">
+            <ImplementationEvidence
+              bundle={bundle}
+              concept={c}
+              record={implementation}
+              onOpenConcept={select}
+              onOpenExternal={(url) => actions.openExternal(url)}
+              onOpenEvidence={(href) =>
+                bundle ? actions.openEvidenceDocument(bundle.root, c.id, href) : Promise.resolve()}
+            />
+          </RailModule>
+        ) : null}
+
         {hasTrustSignals(c) && (
           <RailModule title="Trust and provenance">
             <ConceptTrust
@@ -1450,6 +1522,8 @@ export function Reader() {
           source={`${c.id}.md`}
           values={c.extra}
           excludeKeys={[
+            // Shown by the evidence card; a malformed record stays visible here.
+            ...(implementation?.problems.length === 0 ? ["implementation"] : []),
             ...ODSF_METADATA_KEYS,
             "audience",
             "sensitivity",

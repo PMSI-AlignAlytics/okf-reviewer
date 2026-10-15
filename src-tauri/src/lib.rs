@@ -88,20 +88,51 @@ fn open_linked_document(
         .map_err(|error| format!("Could not open the linked document: {error}"))
 }
 
+/// Open the delivery record a concept's `implementation.evidence` names, after
+/// rechecking the declaration, folder grant, canonical path, and extension.
+#[tauri::command]
+fn open_evidence_document(
+    app: AppHandle,
+    grants: State<'_, bundle_grant::BundleGrantState>,
+    root: String,
+    concept_id: String,
+    href: String,
+) -> Result<(), String> {
+    let path = document_links::declared_evidence_path(
+        grants.inner(),
+        Path::new(&root),
+        &concept_id,
+        &href,
+    )?;
+    let path = path
+        .to_str()
+        .ok_or_else(|| "The evidence record path is not valid UTF-8.".to_string())?;
+    app.opener()
+        .open_path(path, None::<&str>)
+        .map_err(|error| format!("Could not open the evidence record: {error}"))
+}
+
+/// `baselines` maps a branch name to the reviewer's saved comparison commit;
+/// only the current branch's entry applies, and only when it is in that
+/// branch's history.
 #[tauri::command]
 fn read_bundle_git_status(
     grants: State<'_, bundle_grant::BundleGrantState>,
     trusts: State<'_, repository_trust::RepositoryTrustState>,
     root: String,
+    baselines: Option<std::collections::BTreeMap<String, String>>,
 ) -> git::BundleGitStatus {
     let Ok(root) = grants.authorize_bundle(Path::new(&root)) else {
         return git::BundleGitStatus::unavailable();
     };
     match resolve_git_repository(grants.inner(), trusts.inner(), &root) {
-        GitRepositoryAccess::Available(repository) => {
-            git::bundle_status(&root, &repository, &okf_core::read_bundle(&root))
-                .unwrap_or_else(git::BundleGitStatus::unavailable_with_message)
-        }
+        GitRepositoryAccess::Available(repository) => git::bundle_status(
+            &root,
+            &repository,
+            &okf_core::read_bundle(&root),
+            &baselines.unwrap_or_default(),
+        )
+        .unwrap_or_else(git::BundleGitStatus::unavailable_with_message),
         GitRepositoryAccess::TrustRequired(repository) => {
             git::BundleGitStatus::trust_required(&repository)
         }
@@ -180,12 +211,28 @@ fn require_git_repository(
     }
 }
 
+/// Read-only: the last committed text of a removed concept, for reviewing the
+/// impact of its removal.
+#[tauri::command]
+fn read_removed_bundle_document(
+    grants: State<'_, bundle_grant::BundleGrantState>,
+    trusts: State<'_, repository_trust::RepositoryTrustState>,
+    root: String,
+    revision: String,
+    path: String,
+) -> Result<String, String> {
+    let root = grants.authorize_bundle(Path::new(&root))?;
+    let repository = require_git_repository(grants.inner(), trusts.inner(), &root)?;
+    git::deleted_document(&root, &repository, &revision, &path)
+}
+
 #[tauri::command]
 fn trust_bundle_repository(
     grants: State<'_, bundle_grant::BundleGrantState>,
     trusts: State<'_, repository_trust::RepositoryTrustState>,
     root: String,
     repository_root: String,
+    baselines: Option<std::collections::BTreeMap<String, String>>,
 ) -> Result<git::BundleGitStatus, String> {
     let root = grants.authorize_bundle(Path::new(&root))?;
     let requested = dunce::canonicalize(Path::new(&repository_root))
@@ -204,10 +251,13 @@ fn trust_bundle_repository(
         return Err("Git reported a different repository root. No trust was saved.".to_string());
     }
     trusts.trust(&repository)?;
-    Ok(
-        git::bundle_status(&root, &repository, &okf_core::read_bundle(&root))
-            .unwrap_or_else(git::BundleGitStatus::unavailable_with_message),
+    Ok(git::bundle_status(
+        &root,
+        &repository,
+        &okf_core::read_bundle(&root),
+        &baselines.unwrap_or_default(),
     )
+    .unwrap_or_else(git::BundleGitStatus::unavailable_with_message))
 }
 
 #[tauri::command]
@@ -910,7 +960,9 @@ pub fn run() {
             scan_bundles,
             read_bundle,
             open_linked_document,
+            open_evidence_document,
             read_bundle_git_status,
+            read_removed_bundle_document,
             trust_bundle_repository,
             review_concept_preflight,
             review_concept,

@@ -937,8 +937,9 @@ export function Settings({
                 <Dialog.Title>Reset all local preferences?</Dialog.Title>
                 <Dialog.Description>
                   This resets appearance, interface size, reading preferences, scan depth,
-                  and reviewer ID, name, and email. Bundle files, recorded reviews, quiz
-                  history, and quiz generator profiles are kept.
+                  reviewer ID, name, and email, and saved Feature review comparison commits.
+                  Bundle files, recorded reviews, quiz history, and quiz generator profiles
+                  are kept.
                 </Dialog.Description>
                 <div className="settings-reset-actions">
                   <Dialog.Close className="btn">Cancel</Dialog.Close>

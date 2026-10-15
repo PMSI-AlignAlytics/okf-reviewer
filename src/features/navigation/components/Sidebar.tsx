@@ -8,17 +8,29 @@
 
 import { Collapsible } from "@base-ui/react/collapsible";
 import { ScrollArea } from "@base-ui/react/scroll-area";
-import { ChevronRight, RefreshCw, X } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import { CheckCircle2, ChevronRight, RefreshCw, X } from "lucide-react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import "@/shared/styles/baseui.css";
 import "./Sidebar.css";
 import { useApp } from "@/shared/store.tsx";
+import { quizGitRevisions } from "@/shared/ipc.ts";
+import type { GitRevision } from "@/features/quiz/types.ts";
+import { RemovedDocumentDialog } from "@/features/review/components/RemovedDocumentDialog.tsx";
 import { filteredConceptIds } from "@/shared/selectors.ts";
 import { TypeFilters } from "@/features/navigation/components/TypeFilters.tsx";
 import { TagBrowser } from "@/features/navigation/components/TagBrowser.tsx";
 import { IndexTree } from "@/features/navigation/components/IndexTree.tsx";
 import { LifecycleReviewFilters } from "@/features/navigation/components/LifecycleReviewFilters.tsx";
-import { conceptReviewState, reviewStateLabel } from "@/features/review/state.ts";
+import { reviewStateLabel } from "@/features/review/state.ts";
+import {
+  comparisonLabel,
+  featureReviewBatch,
+  nextOutstanding,
+  pendingReason,
+  reviewRecordMarkdown,
+  shortRevision,
+  type FeatureReviewItem,
+} from "@/features/review/batch.ts";
 import "@/shared/styles/chrome.css";
 
 /** A collapsible top-level sidebar section with a chevron + title trigger. */
@@ -54,6 +66,21 @@ function Section({
   );
 }
 
+type AppActions = ReturnType<typeof useApp>["actions"];
+
+/** Open a listed concept, honouring the app's tab-opening modifiers. */
+function openListedConcept(
+  actions: AppActions,
+  id: string,
+  event: MouseEvent<HTMLButtonElement>,
+) {
+  if (event.ctrlKey || event.metaKey || event.button === 1) {
+    actions.openInNewTab(id, { background: !event.shiftKey });
+  } else {
+    actions.selectConcept(id);
+  }
+}
+
 /** Flat matches include concepts absent from the authored navigation index. */
 function MatchingConcepts({ ids }: { ids: ReadonlySet<string> }) {
   const { state, actions } = useApp();
@@ -67,11 +94,7 @@ function MatchingConcepts({ ids }: { ids: ReadonlySet<string> }) {
     );
 
   function open(id: string, event: MouseEvent<HTMLButtonElement>) {
-    if (event.ctrlKey || event.metaKey || event.button === 1) {
-      actions.openInNewTab(id, { background: !event.shiftKey });
-    } else {
-      actions.selectConcept(id);
-    }
+    openListedConcept(actions, id, event);
   }
 
   return (
@@ -114,6 +137,283 @@ function MatchingConcepts({ ids }: { ids: ReadonlySet<string> }) {
   );
 }
 
+type BatchList = "changed" | "reviewed" | "outstanding";
+
+const BATCH_LISTS: readonly BatchList[] = ["changed", "reviewed", "outstanding"];
+
+const OUTSTANDING_RULE =
+  "Outstanding until the lifecycle is stable and a human review covers the current body: the rule the OKF review check applies to pull requests.";
+
+/**
+ * The reviewer's comparison commit for this branch: the automatic base, or a
+ * recent commit such as the approved specification. Saved per bundle and
+ * branch; a commit outside the branch's history falls back natively. Recent
+ * commits are read only when the reviewer reaches for the control.
+ */
+function BaselineSelect() {
+  const { state, actions } = useApp();
+  const status = state.bundleGitStatus;
+  const root = state.activeRoot;
+  const historyKey = `${root ?? ""}\0${status.headRevision ?? ""}`;
+  const [revisions, setRevisions] = useState<{ key: string; list: GitRevision[] } | null>(null);
+  const requested = useRef("");
+  const [busy, setBusy] = useState(false);
+
+  function loadRevisions() {
+    if (!root || requested.current === historyKey) return;
+    requested.current = historyKey;
+    const key = historyKey;
+    void quizGitRevisions(root).then(
+      (list) => setRevisions({ key, list }),
+      () => setRevisions({ key, list: [] }),
+    );
+  }
+
+  if (!status.currentBranch) return null;
+  const automatic = status.defaultBaseRevision ?? null;
+  const automaticLabel = automatic && automatic === status.headRevision ? "HEAD" : "branch base";
+  const selected = status.comparisonMode === "selected-commit" ? status.baseRevision ?? "" : "";
+  const listed = (revisions?.key === historyKey ? revisions.list : [])
+    .filter((revision) => revision.id !== automatic);
+  const selectedMissing = selected !== "" && !listed.some((revision) => revision.id === selected);
+
+  return (
+    <label className="sb-review-batch__baseline">
+      <span>Compare with</span>
+      <select
+        value={selected}
+        disabled={busy}
+        onFocus={loadRevisions}
+        onPointerEnter={loadRevisions}
+        onChange={(event) => {
+          setBusy(true);
+          void actions
+            .setReviewBaseline(event.target.value || null)
+            .finally(() => setBusy(false));
+        }}
+      >
+        <option value="">
+          Automatic: {automaticLabel} · {shortRevision(automatic)}
+        </option>
+        {selectedMissing ? (
+          <option value={selected}>
+            {shortRevision(selected)} · {status.baseSubject ?? "selected commit"}
+          </option>
+        ) : null}
+        {listed.map((revision) => (
+          <option key={revision.id} value={revision.id}>
+            {revision.shortId} · {revision.subject}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * The documents changed since the comparison base, as a work queue: each count
+ * lists its documents, the next outstanding one is a click away, removed and
+ * deprecated documents are listed for an impact check, and a completed batch
+ * can be copied as a review record. Read-only throughout.
+ */
+function FeatureReviewPanel() {
+  const { state, actions } = useApp();
+  const [list, setList] = useState<BatchList | "retired" | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [removedPath, setRemovedPath] = useState<string | null>(null);
+  const bundle = state.bundle;
+  const status = state.bundleGitStatus;
+  if (!bundle || !status.available) return null;
+
+  const batch = featureReviewBatch(bundle, status);
+  const lists: Record<BatchList, FeatureReviewItem[]> = {
+    changed: batch.items,
+    reviewed: batch.reviewed,
+    outstanding: batch.outstanding,
+  };
+  const shown = list && list !== "retired" ? lists[list] : [];
+  const next = nextOutstanding(batch, state.activeConceptId);
+  const uncommittedReviews = status.uncommittedReviewConceptIds?.length ?? 0;
+  const complete =
+    batch.items.length + batch.retired.length > 0 && batch.outstanding.length === 0;
+
+  async function copyRecord() {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard) {
+      setCopyState("failed");
+      return;
+    }
+    try {
+      await clipboard.writeText(reviewRecordMarkdown(batch, status, {
+        copiedAt: new Date().toISOString(),
+        reviewerId: state.settings.reviewerId,
+      }));
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  }
+
+  return (
+    <section className="sb-review-batch" aria-label="Feature review batch">
+      <div className="sb-review-batch__heading">
+        <div>
+          <strong>Feature review</strong>
+          <span>{comparisonLabel(status)}</span>
+        </div>
+        <button
+          type="button"
+          className="sb-link-btn sb-review-batch__refresh"
+          onClick={() => {
+            setCopyState("idle");
+            void actions.refreshBundleGitStatus();
+          }}
+          aria-label="Refresh feature review batch"
+          title="Refresh feature review batch"
+        >
+          <RefreshCw size={13} aria-hidden="true" />
+        </button>
+      </div>
+      <BaselineSelect />
+      {status.baselineNotice ? (
+        <p className="sb-review-batch__uncommitted" role="status">{status.baselineNotice}</p>
+      ) : null}
+      <div className="sb-review-batch__counts" role="group" aria-label="Feature review documents">
+        {BATCH_LISTS.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            className="sb-review-batch__count"
+            aria-pressed={list === kind}
+            disabled={lists[kind].length === 0}
+            title={kind === "outstanding" ? OUTSTANDING_RULE : undefined}
+            onClick={() => setList(list === kind ? null : kind)}
+          >
+            <strong>{lists[kind].length}</strong> {kind}
+          </button>
+        ))}
+        {batch.retired.length > 0 ? (
+          <button
+            type="button"
+            className="sb-review-batch__count"
+            aria-pressed={list === "retired"}
+            onClick={() => setList(list === "retired" ? null : "retired")}
+          >
+            <strong>{batch.retired.length}</strong> removed or deprecated
+          </button>
+        ) : null}
+      </div>
+      {list && list !== "retired" && shown.length > 0 ? (
+        <ul className="sb-matches sb-review-batch__list" aria-label={`${list.charAt(0).toUpperCase()}${list.slice(1)} documents`}>
+          {shown.map((item) => (
+            <li key={item.concept.id}>
+              <button
+                type="button"
+                className={`sb-match${state.activeConceptId === item.concept.id ? " is-active" : ""}`}
+                aria-current={state.activeConceptId === item.concept.id ? "true" : undefined}
+                onClick={(event) => openListedConcept(actions, item.concept.id, event)}
+              >
+                <span className="sb-match-title">{item.concept.title}</span>
+                <span className="sb-match-path">
+                  {item.wordingChanged ? "Wording" : "Metadata only"}
+                  {item.outstanding ? ` · ${pendingReason(item)}` : " · reviewed"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {list === "retired" ? (
+        <>
+          <p className="sb-review-batch__note">
+            No stamp applies to these documents. Check what linked to them.
+          </p>
+          <ul className="sb-matches sb-review-batch__list" aria-label="Removed or deprecated documents">
+            {batch.retired.map((document) => (
+              <li key={document.path}>
+                <button
+                  type="button"
+                  className={`sb-match${state.activeConceptId === document.concept?.id ? " is-active" : ""}`}
+                  onClick={(event) => {
+                    if (document.concept) {
+                      openListedConcept(actions, document.concept.id, event);
+                    } else {
+                      setRemovedPath(document.path);
+                    }
+                  }}
+                >
+                  <span className="sb-match-title">
+                    {document.concept?.title ?? document.path}
+                  </span>
+                  <span className="sb-match-path">
+                    {document.kind === "removed" ? "Removed · view last version" : "Deprecated"}
+                    {document.linkedFrom.length > 0
+                      ? ` · linked from ${document.linkedFrom.length}`
+                      : ""}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {batch.metadataOnly.length > 0 ? (
+        <small>
+          {batch.items.length - batch.metadataOnly.length} wording · {batch.metadataOnly.length} metadata only
+        </small>
+      ) : null}
+      {next ? (
+        <button
+          type="button"
+          className="btn sb-review-batch__next"
+          title={`${next.title} — ${next.id}.md`}
+          onClick={() => actions.selectConcept(next.id)}
+        >
+          Next outstanding: <span>{next.title}</span>
+        </button>
+      ) : null}
+      {uncommittedReviews > 0 ? (
+        <p className="sb-review-batch__uncommitted">
+          {uncommittedReviews} review{uncommittedReviews === 1 ? " is" : "s are"} not committed yet.
+          Commit {uncommittedReviews === 1 ? "it" : "them"} to record the approval in Git.
+        </p>
+      ) : null}
+      {complete ? (
+        <div className="sb-review-batch__complete">
+          <p>
+            <CheckCircle2 size={13} aria-hidden="true" />
+            {batch.items.length > 0
+              ? `All ${batch.items.length} changed document${batch.items.length === 1 ? " is" : "s are"} stable with a current review.`
+              : "No changed document needs a stamp."}
+          </p>
+          <button type="button" className="btn" onClick={() => void copyRecord()}>
+            Copy review record
+          </button>
+          <span role="status">
+            {copyState === "copied"
+              ? "Review record copied."
+              : copyState === "failed"
+                ? "The clipboard is unavailable."
+                : ""}
+          </span>
+        </div>
+      ) : null}
+      <small>
+        Baseline {shortRevision(status.baseRevision)}
+        {status.baseSubject ? ` · ${status.baseSubject}` : ""}
+      </small>
+      {state.activeRoot && status.baseRevision ? (
+        <RemovedDocumentDialog
+          root={state.activeRoot}
+          revision={status.baseRevision}
+          path={removedPath}
+          onClose={() => setRemovedPath(null)}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 export function Sidebar() {
   const { state, actions } = useApp();
   if (!state.bundle) return null;
@@ -137,12 +437,6 @@ export function Sidebar() {
       })
     : new Set<string>();
   const shown = filtering ? matchingIds.size : total;
-  const changedConcepts = state.bundle.concepts.filter((concept) =>
-    state.bundleGitStatus.modifiedConceptIds.includes(concept.id)
-  );
-  const reviewedChanges = changedConcepts.filter(
-    (concept) => conceptReviewState(concept) === "human-reviewed",
-  ).length;
 
   function clearAll() {
     actions.setQuery("");
@@ -251,40 +545,7 @@ export function Sidebar() {
                 // Flat matches complement the authored hierarchy, which stays
                 // available with its folder homes and keyboard navigation.
                 <>
-                  {state.bundleGitStatus.available && (
-                    <section className="sb-review-batch" aria-label="Feature review batch">
-                      <div className="sb-review-batch__heading">
-                        <div>
-                          <strong>Feature review</strong>
-                          <span>
-                            {state.bundleGitStatus.comparisonMode === "feature-branch"
-                              ? `${state.bundleGitStatus.currentBranch ?? "Feature branch"} from ${state.bundleGitStatus.defaultBranch ?? "default branch"}`
-                              : "Working tree from HEAD"}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="sb-link-btn sb-review-batch__refresh"
-                          onClick={() => void actions.refreshBundleGitStatus()}
-                          aria-label="Refresh feature review batch"
-                          title="Refresh feature review batch"
-                        >
-                          <RefreshCw size={13} aria-hidden="true" />
-                        </button>
-                      </div>
-                      <div className="sb-review-batch__counts">
-                        <span><strong>{changedConcepts.length}</strong> changed</span>
-                        <span><strong>{reviewedChanges}</strong> reviewed</span>
-                        <span><strong>{changedConcepts.length - reviewedChanges}</strong> outstanding</span>
-                      </div>
-                      <small>
-                        Baseline {state.bundleGitStatus.baseRevision?.slice(0, 8) ?? "unavailable"}
-                        {state.bundleGitStatus.deletedPaths.length > 0
-                          ? ` · ${state.bundleGitStatus.deletedPaths.length} deleted excluded`
-                          : ""}
-                      </small>
-                    </section>
-                  )}
+                  <FeatureReviewPanel />
                   {filtering ? <MatchingConcepts ids={matchingIds} /> : null}
                   <IndexTree key="index" />
                 </>

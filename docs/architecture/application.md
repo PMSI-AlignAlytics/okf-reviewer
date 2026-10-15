@@ -6,9 +6,9 @@ tags:
   - review
   - architecture
 generated:
-  by: codex/gpt-6
-  at: 2026-10-08T20:31:16Z
-status: stable
+  by: claude-code/claude-opus-5-5
+  at: 2026-10-15T13:34:35Z
+status: draft
 ---
 
 # OKF Reviewer Application Architecture
@@ -56,7 +56,12 @@ The application provides:
 * read-only compatibility, profile, and interoperability reports;
 * reviewer identity, appearance, and reader preferences;
 * local filesystem watching and explicit bundle removal;
-* read-only Git status, passage comparison, and bounded quiz evidence; and
+* read-only Git status, passage comparison, feature review batches, and
+  bounded quiz evidence;
+* review records and reviewer feedback copied to the clipboard, never written
+  to the bundle;
+* a read-only implementation-evidence card for the optional `implementation`
+  pointer, which never records implementation acceptance; and
 * evidence-bound quiz generation, taking, results, history, and stale detection.
 
 General agent chat, general editing, repair and export, Git-writing operations,
@@ -82,7 +87,12 @@ The React frontend requests typed operations. The native backend owns folder
 grants, canonical path checks, bundle reads, file watching, and review writes.
 No frontend code writes bundle files directly.
 Local document opening also stays in the native backend; Git-only repository
-trust does not grant access to documents outside the picked folder.
+trust does not grant access to documents outside the picked folder. A
+concept's `implementation.evidence` delivery record opens the same way: at
+activation the backend re-reads the concept, confirms it still names that
+record, and applies the folder grant, canonical-path, symlink, and Markdown
+checks. A record that is itself a bundle concept opens in the reader
+instead.
 
 The command registry exposes bounded bundle reads, scoped document opening,
 reports, watch controls, application logging, the review preflight/apply pair,
@@ -95,8 +105,13 @@ it never deletes user files.
 
 ## Git and quiz boundaries
 
-Git operations inspect status, the earlier version of a changed passage,
-semantic changes since a selected revision, and newly reviewed documents.
+Git operations inspect status against an automatic base or a reviewer-selected
+commit in the current branch's history, the earlier version of a changed
+passage, whether a concept's body or only its frontmatter changed, human
+reviews not yet committed to `HEAD`, the last committed text of a removed
+concept, semantic changes since a selected revision, and newly reviewed
+documents. A selected commit must be a full commit ID that `HEAD` descends
+from; anything else falls back to the automatic base.
 Ownership and enclosing-repository access require trust for the exact canonical
 repository. Trust is app-local; each Git command receives its own exact-path
 `safe.directory` setting. Global and repository Git configuration are preserved.

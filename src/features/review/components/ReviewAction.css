@@ -33,15 +33,61 @@
   background: color-mix(in srgb, var(--ok) 18%, transparent);
 }
 
+/* Same size as the review action: declining to approve is an equal choice. */
+.feedback-action {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.feedback-action:hover {
+  background: var(--el-hover);
+  border-color: var(--border-strong);
+}
+
 .review-action:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+/* An unchanged approval is finished work, not a blocker. */
+.review-action[data-acknowledged]:disabled {
+  cursor: default;
+  opacity: 1;
+  background: transparent;
+}
+
+.review-action-reason.is-acknowledged {
+  color: var(--ok);
 }
 
 .review-action-notice {
   max-width: 22rem;
   color: var(--ok);
   font-size: 11px;
+}
+
+.review-action-next {
+  max-width: 18rem;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.review-action-next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .review-state-badge {
@@ -99,7 +145,13 @@
   font-weight: 650;
 }
 
-.review-dialog__form input {
+.review-dialog__form textarea {
+  resize: vertical;
+  line-height: var(--lh-normal);
+}
+
+.review-dialog__form input,
+.review-dialog__form textarea {
   min-height: 34px;
   padding: 6px 9px;
   border: 1px solid var(--border);
@@ -191,4 +243,23 @@
 
 .review-dialog__form > .review-dialog__footer {
   margin: 8px -20px -18px;
+}
+
+.removed-document-dialog {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.removed-document {
+  max-height: min(60vh, 32rem);
+  margin: 0;
+  padding: var(--space-10);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
