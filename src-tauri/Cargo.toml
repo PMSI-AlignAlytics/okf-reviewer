@@ -27,7 +27,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = "0.10"
 sha2 = "0.10"
-jsonschema = { version = "0.49", default-features = false }
+jsonschema = { version = "0.52", default-features = false }
 okf-core = { path = "../crates/okf-core" }
 notify = "6"
 time = { version = "0.3", features = ["formatting", "parsing"] }
