@@ -1,5 +1,9 @@
 # Update Log
 
+## 2026-11-05
+
+* **Release**: 0.12.2. Consolidated compatible dependency maintenance without adding app features or changing review, quiz, navigation, or persistence workflows. Updated React and React DOM together, aligned the Storybook security release and retained its test runner timeout patch, and updated lint, accessibility, icon, and Rust cache dependencies. Patched current JavaScript and Rust security advisories, including Markdown parsing, TLS trust, Tokio, and the updater's ZIP dependency; retained the verified GLib backport. Updated the native updater test to install an inert signed AppImage-shaped fixture and reject a signed non-installer without changing the installed file or preferences. Recorded exact-version, time-bounded maintenance reviews for three inherited Linux D-Bus packages, without suppressing vulnerabilities. Dependabot now groups React and its types, compatible maintenance, and security updates; Notify and jsonschema compatibility upgrades remain deferred. Kept the existing TypeScript, Vite, Vitest, and Mermaid major-version migration boundaries.
+
 ## 2026-10-15
 
 * **Release**: 0.12.1. Aligned the Tauri opener and store JavaScript packages (2.7 and 2.5) with their Rust plugins, which earlier dependency maintenance had updated alone. `tauri build` refuses mismatched major or minor versions, so the 0.12.0 release build stopped before packaging and 0.12.0 was not published; 0.12.1 carries all of its changes. CI now runs `pnpm check:tauri-versions`, which applies the same rule to the installed npm packages and Cargo.lock.

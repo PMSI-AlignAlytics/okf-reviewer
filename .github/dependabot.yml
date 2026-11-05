@@ -6,6 +6,17 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      tauri:
+        patterns: ["@tauri-apps/*"]
       storybook-vitest:
         patterns:
           - storybook
@@ -22,6 +33,9 @@ updates:
           - typescript
           - typescript-7
           - typescript-eslint
+      compatible-maintenance:
+        patterns: ["*"]
+        update-types: [minor, patch]
     # These major upgrades need coordinated migrations: TypeScript's lint
     # consumers, Vite's React/Babel setup, matching Vitest browser packages,
     # and Mermaid's renderer/browser compatibility. Keep minor and patch
@@ -45,12 +59,32 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
       tauri:
         patterns:
           - tauri
           - "tauri-*"
+      compatible-maintenance:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    # These upgrades need a focused compatibility review. Keep patch fixes and
+    # security updates enabled while the app stays on its current APIs.
+    ignore:
+      - dependency-name: notify
+        update-types: ["version-update:semver-major"]
+      - dependency-name: jsonschema
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]

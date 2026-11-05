@@ -226,13 +226,50 @@ mod tests {
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
-        let payload = include_bytes!("../../scripts/fixtures/updater/payload.txt");
-        let signature = include_str!("../../scripts/fixtures/updater/payload.txt.sig").trim();
-        let public_key = include_str!("../../scripts/fixtures/updater/public.key.pub").trim();
-        for (version, bytes, valid) in [
-            ("1.2.3", payload.as_slice(), true),
-            ("9.9.9", payload.as_slice(), false),
-            ("1.2.3", b"tampered artifact".as_slice(), false),
+        // An inert ELF header exercises the AppImage format check. This signed
+        // fixture is only written to a disposable path and is never executed.
+        // Tauri CLI 2.12.1 signed version 1.2.3 with a disposable test key;
+        // only its public key and signature are retained.
+        let payload = b"\x7fELFOKF Reviewer signed updater fixture; never execute.\n";
+        let signature = include_str!("../../scripts/fixtures/updater/appimage.sig").trim();
+        let public_key =
+            include_str!("../../scripts/fixtures/updater/appimage-public.key.pub").trim();
+        let text_payload = include_bytes!("../../scripts/fixtures/updater/payload.txt");
+        let text_signature = include_str!("../../scripts/fixtures/updater/payload.txt.sig").trim();
+        let text_public_key = include_str!("../../scripts/fixtures/updater/public.key.pub").trim();
+        for (version, bytes, signature, public_key, valid, installable) in [
+            (
+                "1.2.3",
+                payload.as_slice(),
+                signature,
+                public_key,
+                true,
+                true,
+            ),
+            (
+                "9.9.9",
+                payload.as_slice(),
+                signature,
+                public_key,
+                false,
+                false,
+            ),
+            (
+                "1.2.3",
+                b"tampered artifact".as_slice(),
+                signature,
+                public_key,
+                false,
+                false,
+            ),
+            (
+                "1.2.3",
+                text_payload.as_slice(),
+                text_signature,
+                text_public_key,
+                true,
+                false,
+            ),
         ] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             listener.set_nonblocking(true).unwrap();
@@ -311,18 +348,30 @@ mod tests {
                 let result = update.download(|_, _| {}, || {}).await;
                 assert_eq!(result.is_ok(), valid);
                 if valid {
-                    let bytes = result.unwrap();
-                    assert_eq!(bytes, payload);
+                    let downloaded = result.unwrap();
+                    assert_eq!(downloaded.as_slice(), bytes);
                     #[cfg(target_os = "linux")]
                     {
                         use std::os::unix::fs::PermissionsExt;
-                        update.install(&bytes).unwrap();
-                        assert_eq!(std::fs::read(&executable).unwrap(), payload);
-                        assert_eq!(
-                            std::fs::metadata(&executable).unwrap().permissions().mode() & 0o777,
-                            0o755
-                        );
+                        let installed = update.install(&downloaded);
+                        if installable {
+                            installed.unwrap();
+                            assert_eq!(std::fs::read(&executable).unwrap().as_slice(), bytes);
+                            assert_eq!(
+                                std::fs::metadata(&executable).unwrap().permissions().mode()
+                                    & 0o777,
+                                0o755
+                            );
+                        } else {
+                            assert!(matches!(
+                                installed,
+                                Err(tauri_plugin_updater::Error::InvalidUpdaterFormat)
+                            ));
+                            assert_eq!(std::fs::read(&executable).unwrap(), b"older app version");
+                        }
                     }
+                    #[cfg(not(target_os = "linux"))]
+                    let _ = installable;
                 } else {
                     assert_eq!(std::fs::read(&executable).unwrap(), b"older app version");
                 }
