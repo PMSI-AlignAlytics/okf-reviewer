@@ -2,6 +2,8 @@
 
 ## 2026-11-05
 
+* **Release**: 0.12.5. Moved Reading preferences, Quick quiz, and Give feedback into the fixed document action strip alongside the review button. Speed read also stays in the strip when available. The controls wrap in narrower reader panes and remain accessible while the document scrolls.
+
 * **Release**: 0.12.4. Removed dotted underlines from blue comparison text and updated its legend. Renamed repeat reviews to *Update Review Stamp* and refreshed the review check after body edits, including edits without a changed generation timestamp. Placed the review action with the current document title in a bar that stays at the top of the reader while scrolling, together with any open tabs; section jumps and the context rail account for its height. Increased the default left panel width from 280px to 420px while retaining resizing and compact navigation.
 
 * **Release**: 0.12.3. Applied the compatible Serde JSON, UUID, jsonschema 0.49 patch, and Tauri JavaScript API/CLI 2.12.4 updates that Dependabot queued after the earlier backlog cleared. Kept production logic and the existing dependency feature selections unchanged. Routine major upgrades across npm, Cargo, and GitHub Actions now require an explicit compatibility review, including incompatible pre-1.0 Rust updates such as sha2 0.11; minor, patch, and security updates remain enabled.

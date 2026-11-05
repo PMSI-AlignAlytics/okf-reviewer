@@ -89,9 +89,12 @@ starter pack's validator can assert the same cases.
 - The [human review operation](../review-operation.md) confirmation states what
   a review approves, and an unchanged approval by the same reviewer is
   acknowledged rather than stamped again.
-- The review action stays at the top of the reader with the document tabs and
-  the current document's title while its contents scroll. After an earlier
-  review, the action reads *Update Review Stamp* when a new stamp is needed.
+- The document actions stay at the top of the reader with the document tabs and
+  the current document's title while its contents scroll. Reading preferences,
+  *Quick quiz*, *Give feedback*, and the review action share this strip, as does
+  *Speed read* when available. The controls wrap in narrower panes. After an
+  earlier review, the review action reads *Update Review Stamp* when a new stamp
+  is needed.
 - A concept with an optional `implementation` pointer to a recorded check shows
   an *Implementation evidence* card: whether the check covered the current
   body hash or an earlier wording, when and by whom it was recorded, the

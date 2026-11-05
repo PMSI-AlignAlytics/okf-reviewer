@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { BrainCircuit, Gauge, X } from "lucide-react";
 import type * as React from "react";
 import { useActiveConcept, useApp, paneClamp } from "@/shared/store.tsx";
 import { useGlobalKeys } from "@/keys.ts";
@@ -8,6 +8,8 @@ import { ActivityBar } from "@/features/shell/components/ActivityBar.tsx";
 import { StatusBar } from "@/features/shell/components/StatusBar.tsx";
 import { Sidebar } from "@/features/navigation/components/Sidebar.tsx";
 import { Reader } from "@/features/reader/components/Reader.tsx";
+import { ReaderPrefs } from "@/features/reader/components/ReaderPrefs.tsx";
+import { requestSpeedRead } from "@/features/reader/speedReadStart.ts";
 import { TabStrip } from "@/features/shell/components/TabStrip.tsx";
 import { ValidationPanel } from "@/features/shell/components/ValidationPanel.tsx";
 import { LogView } from "@/features/shell/components/LogView.tsx";
@@ -22,6 +24,8 @@ import { showWindowWhenPainted } from "@/shared/platform/window.ts";
 import { interfaceScale } from "@/shared/uiScale.ts";
 import { AppUpdates } from "@/features/updates/AppUpdates.tsx";
 import { ReviewAction } from "@/features/review/components/ReviewAction.tsx";
+import { FeedbackAction } from "@/features/review/components/FeedbackAction.tsx";
+import { reviewGate } from "@/features/review/batch.ts";
 
 export function App() {
   const { state } = useApp();
@@ -105,6 +109,9 @@ function Workspace() {
   const ref = useRef<HTMLDivElement>(null);
   const readerChromeRef = useRef<HTMLDivElement>(null);
   const quizzesVisible = state.workspaceArea === "quizzes";
+  const awaitingReview = concept
+    && state.bundleGitStatus.modifiedConceptIds.includes(concept.id)
+    && reviewGate(concept) === "block";
 
   useLayoutEffect(() => {
     const chrome = readerChromeRef.current;
@@ -163,11 +170,43 @@ function Workspace() {
         <div ref={readerChromeRef} className="reader-chrome">
           <TabStrip />
           {state.bundle && concept ? (
-            <div className="reader-review-toolbar" role="region" aria-label="Document review">
+            <div className="reader-review-toolbar" role="region" aria-label="Document actions">
               <span className="reader-review-title" title={`${concept.title} — ${concept.id}.md`}>
                 {concept.title}
               </span>
-              <ReviewAction bundle={state.bundle} concept={concept} />
+              <div className="reader-toolbar-actions">
+                <div className="reader-action-group" role="group" aria-label="Reading">
+                  {/* Outstanding review work keeps speed reading in preferences
+                      and the shortcut until the document has been reviewed. */}
+                  {!awaitingReview && (
+                    <button
+                      id="reader-speed-read"
+                      type="button"
+                      className="reader-speed-read"
+                      aria-label="Speed-read this concept"
+                      title="Speed-read this concept (S)"
+                      onClick={() => requestSpeedRead("focus")}
+                    >
+                      <Gauge size={14} aria-hidden="true" />
+                      Speed read
+                      <kbd className="kbd" aria-hidden="true">S</kbd>
+                    </button>
+                  )}
+                  {!quizzesVisible && <ReaderPrefs onStartSpeedRead={requestSpeedRead} />}
+                </div>
+                <button
+                  type="button"
+                  className="reader-speed-read"
+                  aria-label="Make a quick quiz from this concept"
+                  title="Use this concept as the quiz target and the selected bundle as context"
+                  onClick={() => actions.startQuickQuiz(concept.id)}
+                >
+                  <BrainCircuit size={14} aria-hidden="true" />
+                  Quick quiz
+                </button>
+                <FeedbackAction concept={concept} />
+                <ReviewAction bundle={state.bundle} concept={concept} />
+              </div>
             </div>
           ) : null}
         </div>
