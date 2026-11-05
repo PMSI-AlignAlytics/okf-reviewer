@@ -219,14 +219,21 @@ Windows MSI upgrade detection.
 Use the pnpm version pinned by `packageManager` in `package.json`; CI and
 Dependabot use this pin to keep lockfile and patch metadata consistent.
 Release builds read the pin from the selected tag, with pnpm 10 for older tags.
-Dependabot groups related Storybook/Vitest, Vite/React compiler, TypeScript,
-and native Tauri updates. Routine major version updates for TypeScript, Vite,
+Dependabot groups related React/runtime types, Storybook/Vitest, Vite/React
+compiler, TypeScript, and Tauri updates. Other minor and patch updates are
+batched per ecosystem; security fixes have separate groups and remain enabled.
+Tauri updates still need matching npm and Rust major/minor versions, checked
+by `pnpm check:tauri-versions`. Routine major version updates for TypeScript, Vite,
 the React plugin, Vitest and its Playwright provider, and Mermaid are deferred
 until their compatibility migrations are planned; minor, patch, and security
-updates remain enabled. Remove the relevant major-version ignore rule when
-completing a migration. Storybook addon upgrades must also refresh the patch
-in `pnpm-workspace.yaml` with pnpm 10 and pass `pnpm install --frozen-lockfile`
-and the browser story tests.
+updates remain enabled. Notify major upgrades and jsonschema minor/major
+upgrades are also deferred for focused compatibility reviews. Remove the
+relevant ignore rule when completing a migration. The three Storybook packages
+are pinned together so the addon patch cannot be skipped by a newer resolution.
+Storybook upgrades must refresh all three versions and the patch in
+`pnpm-workspace.yaml` with pnpm 10, then pass `pnpm install --frozen-lockfile`
+and the browser story tests. The Vitest ESLint plugin stays at 1.6.27 while its
+lint consumers use TypeScript 5; 1.6.28 requires TypeScript 6.
 
 The Debian package is now `okf-reviewer` and replaces the former `okf-review`
 package. For an existing Windows NSIS (`.exe`) installation, uninstall
