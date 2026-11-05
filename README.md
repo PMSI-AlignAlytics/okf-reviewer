@@ -223,12 +223,13 @@ Dependabot groups related React/runtime types, Storybook/Vitest, Vite/React
 compiler, TypeScript, and Tauri updates. Other minor and patch updates are
 batched per ecosystem; security fixes have separate groups and remain enabled.
 Tauri updates still need matching npm and Rust major/minor versions, checked
-by `pnpm check:tauri-versions`. Routine major version updates for TypeScript, Vite,
-the React plugin, Vitest and its Playwright provider, and Mermaid are deferred
-until their compatibility migrations are planned; minor, patch, and security
-updates remain enabled. Notify major upgrades and jsonschema minor/major
-upgrades are also deferred for focused compatibility reviews. Remove the
-relevant ignore rule when completing a migration. The three Storybook packages
+by `pnpm check:tauri-versions`. Routine major updates are deferred across all
+three ecosystems for explicit compatibility reviews; minor, patch, and security
+updates remain enabled. This includes TypeScript, Vite, the React plugin, Vitest,
+Mermaid, Notify, and Cargo's incompatible pre-1.0 releases such as sha2 0.11.
+Jsonschema minor/major upgrades are also deferred; patch updates within 0.49
+remain enabled. Perform planned migrations explicitly with their compatibility
+checks. The three Storybook packages
 are pinned together so the addon patch cannot be skipped by a newer resolution.
 Storybook upgrades must refresh all three versions and the patch in
 `pnpm-workspace.yaml` with pnpm 10, then pass `pnpm install --frozen-lockfile`
