@@ -47,7 +47,7 @@
   gap: var(--space-8);
 }
 
-/* Top row: breadcrumb (left) and the "Aa" reading-preferences control (right). */
+/* Breadcrumb row above the document title. */
 .reader-header-top {
   display: flex;
   flex-wrap: wrap;
@@ -55,7 +55,7 @@
   justify-content: space-between;
   gap: var(--space-8);
 }
-/* Compact, quiet "Aa" trigger — it sits with the content, not in the chrome. */
+/* Compact, quiet "Aa" trigger in the document actions strip. */
 .reader-prefs-btn {
   flex: 0 0 auto;
   padding: var(--space-4) var(--space-8);
@@ -257,40 +257,11 @@
   overflow-wrap: anywhere;
 }
 
-.reader-header-actions,
 .reader-resource-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-8);
   align-items: center;
-}
-
-.reader-header-actions {
-  justify-content: flex-end;
-  margin-inline-start: auto;
-}
-
-/* Controls that share a job sit tighter to each other than to the next group,
-   so the row reads as two sets rather than one undifferentiated queue. */
-.reader-action-group {
-  display: inline-flex;
-  gap: var(--space-4);
-  align-items: center;
-}
-
-.reader-action-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
-}
-
-/* The divider earns nothing once the row wraps. Keyed to the READER PANE, not
-   the window: in the split layout the pane can be narrow while the window is
-   wide, and the rest of this file already sizes off the same container. */
-@container (max-width: 640px) {
-  .reader-action-divider {
-    display: none;
-  }
 }
 
 .reader-okf-task,
@@ -717,13 +688,9 @@
 /* Current-side Git changes use the contrast-tested accent as ink, never a
    background wash. Authored <mark> remains the semantic warn highlight above. */
 .markdown .git-diff-change,
-.markdown .git-diff-change-block {
-  color: var(--accent);
-}
-.markdown .git-diff-change,
+.markdown .git-diff-change-block,
 .git-diff-legend-sample {
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
+  color: var(--accent);
 }
 .markdown .git-diff-change-block {
   padding-inline-start: var(--space-12);
@@ -756,7 +723,7 @@
   padding-block: calc((var(--reader-leading) - 1.2) * 0.5em);
 }
 .markdown .git-diff-change.is-comparing {
-  text-decoration-style: solid;
+  text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 
@@ -1085,8 +1052,8 @@
   flex-direction: column;
   gap: var(--space-16);
   position: sticky;
-  top: var(--space-16);
-  max-height: calc(var(--app-viewport-height, 100vh) - var(--space-40));
+  top: calc(var(--reader-chrome-height, 0px) + var(--space-16));
+  max-height: calc(var(--reader-pane-height, var(--app-viewport-height, 100vh)) - var(--reader-chrome-height, 0px) - var(--space-32));
   overflow: auto;
   max-width: none;
   margin: 0;

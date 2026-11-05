@@ -5,7 +5,7 @@
 // side in reader-only mode and falls below the article when space is tight (the
 // split layout, or a narrow pane). See docs/features/concept-reader.md.
 
-import { BrainCircuit, Gauge, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   CSSProperties,
@@ -32,7 +32,6 @@ import type { Bundle, Concept } from "@/shared/types.ts";
 import { useProfileReport } from "@/shared/useProfileReport.ts";
 import { useInteropReport } from "@/shared/useInteropReport.ts";
 import { buildTokenIndex, conceptAppliesTo } from "@/shared/odsf.ts";
-import { ReaderPrefs } from "@/features/reader/components/ReaderPrefs.tsx";
 import { SpeedReader } from "@/features/reader/components/SpeedReader.tsx";
 import { ReadingPacer } from "@/features/reader/components/ReadingPacer.tsx";
 import { ReaderOutline, CompactReaderOutline } from "@/features/reader/components/ReaderOutline.tsx";
@@ -72,11 +71,7 @@ import {
   ConceptComputation,
   hasComputation,
 } from "@/features/reader/components/ConceptComputation.tsx";
-import {
-  ReviewAction,
-  ReviewStateBadge,
-} from "@/features/review/components/ReviewAction.tsx";
-import { FeedbackAction } from "@/features/review/components/FeedbackAction.tsx";
+import { ReviewStateBadge } from "@/features/review/components/ReviewAction.tsx";
 import { conceptChange, reviewGate, shortRevision } from "@/features/review/batch.ts";
 import {
   ImplementationEvidence,
@@ -940,7 +935,6 @@ export function Reader() {
   const gitChange = conceptChange(c.id, state.bundleGitStatus);
   const changedIds = new Set(state.bundleGitStatus.modifiedConceptIds);
   const gate = reviewGate(c);
-  const awaitingReview = changedIds.has(c.id) && gate === "block";
   // A changed deprecated concept, like a removed one, takes no stamp: every
   // document linking to it needs checking. Changed wording points at the
   // linking documents whose own wording did not change.
@@ -1194,8 +1188,6 @@ export function Reader() {
         data-aids={state.settings.readerAids ? "on" : undefined}
       >
         <header className="reader-header">
-          {/* Top row: breadcrumb at the left, reading-preferences ("Aa") at the
-              right — reading options live with the content, not the title bar. */}
           <div className="reader-header-top">
               <nav className="reader-crumbs" aria-label="Breadcrumb">
                 <span className="crumb">
@@ -1215,52 +1207,6 @@ export function Reader() {
                   </span>
                 ))}
               </nav>
-            {/* Reading controls stay with the content. Human review is the only
-                authoring action in this focused workspace. */}
-            <div className="reader-header-actions">
-              <div className="reader-action-group" role="group" aria-label="Reading">
-                {/* Speed reading needs a visible way in, not only the `S` key
-                    and a control inside the "Aa" popover — a mode nobody can
-                    see is a mode nobody starts. This runs the focus player;
-                    guided pacing and the pace itself stay in the popover.
-                    Outstanding review work is the exception: beside the review
-                    action, a speed control suggests skimming is enough, so it
-                    steps back to the popover and the key until the review. */}
-                {!awaitingReview && <button
-                  id="reader-speed-read"
-                  type="button"
-                  className="reader-speed-read"
-                  aria-label="Speed-read this concept"
-                  title="Speed-read this concept (S)"
-                  onClick={() => setSpeedRequest({ conceptId: c.id, mode: "focus" })}
-                >
-                  <Gauge size={14} aria-hidden="true" />
-                  Speed read
-                  {/* The key printed on the control, per the cap convention in
-                      shared/styles/chrome.css: a boxed .kbd names a key someone
-                      should press, so it need not be looked up on the sheet. */}
-                  <kbd className="kbd" aria-hidden="true">
-                    S
-                  </kbd>
-                </button>}
-                {readerActive && <ReaderPrefs
-                  onStartSpeedRead={(mode) => setSpeedRequest({ conceptId: c.id, mode })}
-                />}
-              </div>
-              <button
-                type="button"
-                className="reader-speed-read"
-                aria-label="Make a quick quiz from this concept"
-                title="Use this concept as the quiz target and the selected bundle as context"
-                onClick={() => actions.startQuickQuiz(c.id)}
-              >
-                <BrainCircuit size={14} aria-hidden="true" />
-                Quick quiz
-              </button>
-              <span className="reader-action-divider" aria-hidden="true" />
-              {bundle ? <FeedbackAction concept={c} /> : null}
-              {bundle ? <ReviewAction bundle={bundle} concept={c} /> : null}
-            </div>
           </div>
           {/* One quiet meta line, not a row of pills: the type carries its
               palette color as a dot (the same encoding the Filter lens uses),
@@ -1294,7 +1240,7 @@ export function Reader() {
           {c.description && <p className="desc">{c.description}</p>}
           {lineChanges.length > 0 && (
             <p className="git-diff-legend">
-              <span className="git-diff-legend-sample">Underlined text</span> and marked blocks have changed.
+              <span className="git-diff-legend-sample">Blue text</span> and marked blocks have changed.
               {lineChanges.some((change) => change.previousText != null) ? " Compare changes shows earlier wording." : " This text was added."}
             </p>
           )}

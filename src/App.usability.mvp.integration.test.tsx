@@ -10,7 +10,7 @@ describe("shared usability improvements", () => {
     const user = userEvent.setup();
     renderApp();
     await openBundle(user);
-    expect(screen.getByRole("separator", { name: "Resize sidebar" })).toHaveAttribute("aria-valuenow", "280");
+    expect(screen.getByRole("separator", { name: "Resize sidebar" })).toHaveAttribute("aria-valuenow", "420");
     await user.keyboard("[[");
     expect(screen.queryByLabelText("Search and filter concepts")).not.toBeInTheDocument();
     await user.keyboard("{Control>}k{/Control}");

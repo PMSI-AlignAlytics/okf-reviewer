@@ -75,7 +75,7 @@ starter pack's validator can assert the same cases.
 ## Reviewing a changed concept
 
 - A concept whose frontmatter changed but whose body did not says that only
-  metadata changed, so a reviewer does not look for missing underlines.
+  metadata changed, so a reviewer does not look for missing blue text.
 - When the wording changed, the reader names the unchanged concepts that link
   to it: their text is the same, but their meaning may not be. A changed
   deprecated concept names every concept that links to it.
@@ -89,6 +89,12 @@ starter pack's validator can assert the same cases.
 - The [human review operation](../review-operation.md) confirmation states what
   a review approves, and an unchanged approval by the same reviewer is
   acknowledged rather than stamped again.
+- The document actions stay at the top of the reader with the document tabs and
+  the current document's title while its contents scroll. Reading preferences,
+  *Quick quiz*, *Give feedback*, and the review action share this strip, as does
+  *Speed read* when available. The controls wrap in narrower panes. After an
+  earlier review, the review action reads *Update Review Stamp* when a new stamp
+  is needed.
 - A concept with an optional `implementation` pointer to a recorded check shows
   an *Implementation evidence* card: whether the check covered the current
   body hash or an earlier wording, when and by whom it was recorded, the
@@ -108,6 +114,7 @@ Settings offers interface sizes from 100% to 200%, independently of reader
 text preferences. Compact layouts keep navigation, settings, quizzes, and
 floating controls reachable. The sidebar divider reports its measured width,
 and a compact On this page control preserves access to the document outline.
+The left panel defaults to 420px and can still be resized or collapsed.
 
 Settings search and reviewer identity fields show keyboard focus. Searchable
 keyboard help is available in Settings. Dialogs contain focus, close with

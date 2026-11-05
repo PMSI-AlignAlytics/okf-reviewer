@@ -251,7 +251,7 @@ pub fn preflight(
     }
 
     let action_label = if reviewer_has_reviewed {
-        "Review again"
+        "Update Review Stamp"
     } else if valid.status != "stable" {
         "Mark reviewed and stable"
     } else if valid.human_reviews.is_empty() {
@@ -1131,7 +1131,7 @@ mod tests {
         assert_eq!(machine.review_state.as_deref(), Some("machine-confirmed"));
         assert_eq!(machine.action_label.as_deref(), Some("Mark as reviewed"));
         assert_eq!(human.review_state.as_deref(), Some("human-reviewed"));
-        assert_eq!(human.action_label.as_deref(), Some("Review again"));
+        assert_eq!(human.action_label.as_deref(), Some("Update Review Stamp"));
     }
 
     #[test]
@@ -1169,10 +1169,11 @@ mod tests {
 
         let draft = preflight(fixture.path(), "draft", Some("alex")).expect("draft");
         assert!(draft.available, "a lifecycle change still needs the review");
-        assert_eq!(draft.action_label.as_deref(), Some("Review again"));
+        assert_eq!(draft.action_label.as_deref(), Some("Update Review Stamp"));
 
         let edited = preflight(fixture.path(), "edited", Some("alex")).expect("edited");
         assert!(edited.available, "changed wording needs a new review");
+        assert_eq!(edited.action_label.as_deref(), Some("Update Review Stamp"));
 
         let original = fs::read(fixture.path().join("stable.md")).expect("original");
         let error = apply(

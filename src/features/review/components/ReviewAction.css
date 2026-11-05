@@ -1,3 +1,39 @@
+.reader-review-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-16);
+  padding: var(--space-8) var(--space-24);
+  border-bottom: 1px solid var(--border);
+}
+
+.reader-review-title {
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.reader-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  min-width: 0;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+
+.reader-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .review-action-wrap {
   display: flex;
   align-items: center;

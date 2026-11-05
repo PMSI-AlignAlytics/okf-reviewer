@@ -20,7 +20,7 @@ base, `HEAD`, or a commit the reviewer selected in the branch's history (see
 [Review Workspace Usability](review-usability.md)).
 
 When a concept's Markdown differs from the Git comparison base, the reader
-marks and underlines the current text of each changed hunk. A hunk that replaced earlier
+marks the current text of each changed hunk in blue, without dotted underlines. A hunk that replaced earlier
 text is a *changed passage*: the reader can preview what changed and compare it
 with the earlier version where it stands. A pure addition has no earlier text
 and has no earlier-version comparison.

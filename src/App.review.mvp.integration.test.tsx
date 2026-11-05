@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as ipc from "@/shared/ipc.ts";
 import { MOCK_BUNDLE } from "@/mock/fixture.ts";
@@ -38,6 +38,66 @@ afterEach(() => {
 });
 
 describe("human concept review MVP", () => {
+  it("offers an updated review stamp after a watched body edit with unchanged generation metadata", async () => {
+    const user = userEvent.setup();
+    const oldHash = "a".repeat(64);
+    const newHash = "b".repeat(64);
+    let bundle = {
+      ...MOCK_BUNDLE,
+      concepts: MOCK_BUNDLE.concepts.map((concept) => concept.id === "product/overview"
+        ? {
+            ...concept,
+            contentSha256: oldHash,
+            verified: [{ by: "human:alex", at: "2026-11-01T09:00:00Z", contentSha256: oldHash }],
+          }
+        : concept),
+    };
+    let changed: ((event: ipc.BundleChanged) => void) | undefined;
+    vi.spyOn(ipc, "loadSettings").mockResolvedValue({ ...DEFAULT_SETTINGS, reviewerId: "alex" });
+    vi.spyOn(ipc, "readBundle").mockImplementation(() => Promise.resolve(bundle));
+    vi.spyOn(ipc, "startWatch").mockImplementation((_root, onChanged) => {
+      changed = onChanged;
+      return Promise.resolve(() => undefined);
+    });
+    const check = vi.spyOn(ipc, "reviewConceptPreflight")
+      .mockResolvedValueOnce(preflight({
+        available: false,
+        reasonCode: "already-reviewed",
+        message: "You approved this exact wording.",
+        actionLabel: null,
+        reviewerHasReviewed: true,
+        contentSha256: oldHash,
+      }))
+      .mockResolvedValue(preflight({
+        actionLabel: "Update Review Stamp",
+        reviewerHasReviewed: true,
+        reviewState: "human-reviewed",
+        contentSha256: newHash,
+      }));
+
+    renderApp();
+    await openBundleAtOverview(user);
+    expect(await screen.findByRole("button", { name: "Reviewed by you" })).toBeDisabled();
+    bundle = {
+      ...bundle,
+      concepts: bundle.concepts.map((concept) => concept.id === "product/overview"
+        ? { ...concept, body: `${concept.body}\n\nUpdated wording.`, contentSha256: newHash }
+        : concept),
+    };
+    expect(changed).toBeDefined();
+    await act(() => {
+      changed!({ root: bundle.root, conceptIds: ["product/overview"] });
+      return Promise.resolve();
+    });
+
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    const update = await screen.findByRole("button", { name: "Update Review Stamp" });
+    expect(update).toBeEnabled();
+    await user.click(update);
+    expect(await screen.findByRole("dialog", { name: "Confirm human review" }))
+      .toHaveTextContent(`sha256 ${newHash.slice(0, 12)}`);
+  });
+
   it("collects a missing reviewer, confirms the exact change, and reloads", async () => {
     const user = userEvent.setup();
     const reviewedBundle = {

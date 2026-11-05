@@ -469,7 +469,7 @@ export async function reviewConceptPreflight(
   const available = concept.status !== "deprecated" && reviewerValid && !approval;
   const reviewedAt = new Date().toISOString();
   const actionLabel = reviewerHasReviewed
-    ? "Review again"
+    ? "Update Review Stamp"
     : concept.status !== "stable"
       ? "Mark reviewed and stable"
       : humanActors.length === 0
