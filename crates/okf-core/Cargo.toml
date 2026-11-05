@@ -11,6 +11,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 regex = "1"
 semver = "1"
-pulldown-cmark = { version = "0.13.4", default-features = false }
+pulldown-cmark = { version = "0.13.6", default-features = false }
 sha2 = "0.10"
 walkdir = "2"

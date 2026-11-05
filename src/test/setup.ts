@@ -72,7 +72,9 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     onchange: null,
     addEventListener: () => {},
     removeEventListener: () => {},
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- Complete the browser mock for consumers of the legacy API.
     addListener: () => {},
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- Complete the browser mock for consumers of the legacy API.
     removeListener: () => {},
     dispatchEvent: () => false,
   });

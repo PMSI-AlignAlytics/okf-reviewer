@@ -85,7 +85,10 @@ describe("human concept review MVP", () => {
         : concept),
     };
     expect(changed).toBeDefined();
-    await act(async () => changed!({ root: bundle.root, conceptIds: ["product/overview"] }));
+    await act(() => {
+      changed!({ root: bundle.root, conceptIds: ["product/overview"] });
+      return Promise.resolve();
+    });
 
     await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
     const update = await screen.findByRole("button", { name: "Update Review Stamp" });

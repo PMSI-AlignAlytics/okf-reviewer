@@ -36,6 +36,24 @@
       "reason": "Inherited Tauri/GTK build dependency; maintenance notice without a reported vulnerability. No compatible maintained replacement is available in this dependency chain.",
       "review_by": "2027-01-08"
     },
+    "RUSTSEC-2026-0370": {
+      "package": "zvariant",
+      "version": "5.12.0",
+      "reason": "Inherited Linux D-Bus dependency of the Tauri opener and keyring credential store. Maintenance notice without a reported vulnerability; replacing this dependency chain requires a separate compatibility review.",
+      "review_by": "2027-01-08"
+    },
+    "RUSTSEC-2026-0371": {
+      "package": "zbus_names",
+      "version": "4.3.2",
+      "reason": "Inherited Linux D-Bus dependency of the Tauri opener and keyring credential store. Maintenance notice without a reported vulnerability; replacing this dependency chain requires a separate compatibility review.",
+      "review_by": "2027-01-08"
+    },
+    "RUSTSEC-2026-0372": {
+      "package": "zvariant_derive",
+      "version": "5.12.0",
+      "reason": "Inherited Linux D-Bus build dependency of the Tauri opener and keyring credential store. Maintenance notice without a reported vulnerability; replacing this dependency chain requires a separate compatibility review.",
+      "review_by": "2027-01-08"
+    },
     "RUSTSEC-2024-0449": {
       "package": "unsafe-libyaml",
       "version": "0.2.11",
