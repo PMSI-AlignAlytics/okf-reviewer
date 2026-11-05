@@ -11,7 +11,7 @@ const meta = {
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
-      <div style={{ display: "flex", width: 280, height: 560, overflow: "hidden" }}>
+      <div style={{ display: "flex", width: 420, height: 560, overflow: "hidden" }}>
         <Story />
       </div>
     ),

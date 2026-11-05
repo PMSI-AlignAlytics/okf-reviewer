@@ -1,5 +1,9 @@
 # Update Log
 
+## 2026-11-05
+
+* **Release**: 0.12.2. Removed dotted underlines from blue comparison text and updated its legend. Renamed repeat reviews to *Update Review Stamp* and refreshed the review check after body edits, including edits without a changed generation timestamp. Placed the review action with the current document title in a bar that stays at the top of the reader while scrolling, together with any open tabs; section jumps and the context rail account for its height. Increased the default left panel width from 280px to 420px while retaining resizing and compact navigation.
+
 ## 2026-10-15
 
 * **Release**: 0.12.1. Aligned the Tauri opener and store JavaScript packages (2.7 and 2.5) with their Rust plugins, which earlier dependency maintenance had updated alone. `tauri build` refuses mismatched major or minor versions, so the 0.12.0 release build stopped before packaging and 0.12.0 was not published; 0.12.1 carries all of its changes. CI now runs `pnpm check:tauri-versions`, which applies the same rule to the installed npm packages and Cargo.lock.

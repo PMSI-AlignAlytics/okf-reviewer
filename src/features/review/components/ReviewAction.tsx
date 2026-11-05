@@ -28,6 +28,7 @@ function preflightKey(bundle: Bundle, concept: Concept, reviewerId: string): str
     concept.status,
     concept.statusExplicit ? "explicit" : "implicit",
     concept.generated?.at ?? concept.timestamp ?? "unknown-generation-time",
+    concept.contentSha256 ?? concept.body,
     JSON.stringify(concept.verified),
     reviewerId,
   ].join("\0");

@@ -72,10 +72,7 @@ import {
   ConceptComputation,
   hasComputation,
 } from "@/features/reader/components/ConceptComputation.tsx";
-import {
-  ReviewAction,
-  ReviewStateBadge,
-} from "@/features/review/components/ReviewAction.tsx";
+import { ReviewStateBadge } from "@/features/review/components/ReviewAction.tsx";
 import { FeedbackAction } from "@/features/review/components/FeedbackAction.tsx";
 import { conceptChange, reviewGate, shortRevision } from "@/features/review/batch.ts";
 import {
@@ -1259,7 +1256,6 @@ export function Reader() {
               </button>
               <span className="reader-action-divider" aria-hidden="true" />
               {bundle ? <FeedbackAction concept={c} /> : null}
-              {bundle ? <ReviewAction bundle={bundle} concept={c} /> : null}
             </div>
           </div>
           {/* One quiet meta line, not a row of pills: the type carries its
@@ -1294,7 +1290,7 @@ export function Reader() {
           {c.description && <p className="desc">{c.description}</p>}
           {lineChanges.length > 0 && (
             <p className="git-diff-legend">
-              <span className="git-diff-legend-sample">Underlined text</span> and marked blocks have changed.
+              <span className="git-diff-legend-sample">Blue text</span> and marked blocks have changed.
               {lineChanges.some((change) => change.previousText != null) ? " Compare changes shows earlier wording." : " This text was added."}
             </p>
           )}

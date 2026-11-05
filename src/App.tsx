@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type * as React from "react";
-import { useApp, paneClamp } from "@/shared/store.tsx";
+import { useActiveConcept, useApp, paneClamp } from "@/shared/store.tsx";
 import { useGlobalKeys } from "@/keys.ts";
 import { TopBar } from "@/features/shell/components/TopBar.tsx";
 import { ActivityBar } from "@/features/shell/components/ActivityBar.tsx";
@@ -21,6 +21,7 @@ import { RepositoryTrustDialog } from "@/features/git/components/RepositoryTrust
 import { showWindowWhenPainted } from "@/shared/platform/window.ts";
 import { interfaceScale } from "@/shared/uiScale.ts";
 import { AppUpdates } from "@/features/updates/AppUpdates.tsx";
+import { ReviewAction } from "@/features/review/components/ReviewAction.tsx";
 
 export function App() {
   const { state } = useApp();
@@ -100,8 +101,27 @@ export function App() {
 /** The fixed reviewer workspace: optional hierarchy beside the concept reader. */
 function Workspace() {
   const { state, actions } = useApp();
+  const concept = useActiveConcept();
   const ref = useRef<HTMLDivElement>(null);
+  const readerChromeRef = useRef<HTMLDivElement>(null);
   const quizzesVisible = state.workspaceArea === "quizzes";
+
+  useLayoutEffect(() => {
+    const chrome = readerChromeRef.current;
+    const scroller = chrome?.parentElement;
+    if (!chrome || !scroller) return;
+    // Reserve the measured chrome height for section jumps and the side rail,
+    // including wrapped review notices and sessions with multiple tabs.
+    const measure = () => {
+      scroller.style.setProperty("--reader-chrome-height", `${chrome.offsetHeight}px`);
+      scroller.style.setProperty("--reader-pane-height", `${scroller.clientHeight}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(chrome);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, []);
 
   const showSidebar = state.panels.sidebar;
   const focusedSidebarWidth = state.paneSizes.sidebar !== null
@@ -140,7 +160,17 @@ function Workspace() {
         </>
       ) : null}
       <section className="pane reader">
-        <TabStrip />
+        <div ref={readerChromeRef} className="reader-chrome">
+          <TabStrip />
+          {state.bundle && concept ? (
+            <div className="reader-review-toolbar" role="region" aria-label="Document review">
+              <span className="reader-review-title" title={`${concept.title} — ${concept.id}.md`}>
+                {concept.title}
+              </span>
+              <ReviewAction bundle={state.bundle} concept={concept} />
+            </div>
+          ) : null}
+        </div>
         <Reader />
       </section>
     </div>
@@ -170,7 +200,7 @@ function Divider({
 }) {
   const { state, actions } = useApp();
   const clamp = paneClamp(pane);
-  const [measuredWidth, setMeasuredWidth] = useState(pane === "sidebar" ? 280 : 360);
+  const [measuredWidth, setMeasuredWidth] = useState(pane === "sidebar" ? 420 : 360);
   useEffect(() => {
     const element = gridRef.current?.querySelector<HTMLElement>(
       pane === "sidebar" ? ".sidebar" : ".reader",

@@ -1,12 +1,7 @@
-/* Reader tab strip (docs/proposals/multi-view.md). Sticky at the top of the
-   scrolling reader pane so the tabs stay reachable mid-document without
-   changing the pane's scroll contract (the pane itself remains the scroller,
-   which the reader's scroll-spy depends on). */
+/* Reader tabs share the sticky reader chrome with the review action. The pane
+   itself remains the scroller, which the reader's scroll-spy depends on. */
 
 .tab-strip {
-  position: sticky;
-  top: 0;
-  z-index: 5;
   /* The strip is chrome, not content — but it sits inside the reader pane,
      which styles.css opts back INTO text selection (the `.reader` selector
      matches the pane). Re-assert the chrome rule, or dragging a tab
