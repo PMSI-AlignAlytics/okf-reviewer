@@ -67,7 +67,7 @@
     "@storybook/addon-vitest": "10.6.2",
     "@storybook/react-vite": "10.6.2",
     "@tauri-apps/cli": "^2.12.1",
-    "@testing-library/jest-dom": "^6",
+    "@testing-library/jest-dom": "^7",
     "@testing-library/react": "^16",
     "@testing-library/user-event": "^14",
     "@types/dompurify": "^3",
