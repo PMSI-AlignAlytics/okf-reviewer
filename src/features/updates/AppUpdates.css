@@ -93,7 +93,7 @@
   margin: 0;
 }
 
-.app-update-dialog progress {
+.app-update-settings progress {
   width: 100%;
   accent-color: var(--accent);
 }

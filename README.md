@@ -49,8 +49,8 @@ switching, and removing a bundle registration never deletes bundle files.
 - Take and retake quizzes without further model calls, reveal explanations and
   resolved bundle evidence only after submission, review attempts and results,
   and distinguish stale quizzes from current ones.
-- Detect signed releases automatically and update from General settings or the
-  update notice. Windows MSI/NSIS and Linux AppImage/Debian installations keep
+- Download signed releases automatically in the background and install on request
+  from General settings or the update notice. Windows MSI/NSIS and Linux AppImage/Debian installations keep
   their installer format and save preferences before restarting.
 
 General agent chat, repository-wide Git management, graph visualizations,
@@ -171,9 +171,14 @@ complete release. Build jobs have read-only permissions. Actions are pinned to
 commit SHAs, and Dependabot proposes dependency and action updates.
 
 Install the first updater-enabled release manually. Later versions check at
-startup and every six hours, with an explicit **Update and restart** button.
+startup and every six hours, downloading new releases in the background while
+you keep working. A verified download shows an explicit **Install and restart**
+button; neither downloading nor retrying a download starts installation.
+Downloaded packages remain in the application cache across launches, including
+offline launches, and their signatures and signed versions are checked again
+before use. Damaged, incomplete, or obsolete caches require a fresh download.
 **Settings → General → Application updates** also offers a manual check,
-release notes, and a manual download link. Updating waits for quiz generation;
+release notes, progress, retries, and a manual download link. Installation waits for quiz generation;
 failed downloads, signature checks, preference saves, or installations leave the
 app open for retry. Debian installation may request system authentication;
 AppImage updates require a writable file. Browser previews and development

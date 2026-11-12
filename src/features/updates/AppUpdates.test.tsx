@@ -8,12 +8,12 @@ import { AppUpdates, AppUpdatesSettings } from "./AppUpdates.tsx";
 import { UpdateController } from "./controller.ts";
 import type { UpdateApi } from "./api.ts";
 
-function fixture() {
+function fixture(download?: UpdateApi["download"]) {
   vi.spyOn(nativeWindow, "isWindowMaximized").mockResolvedValue(false);
   vi.spyOn(nativeWindow, "onWindowResized").mockResolvedValue(() => {});
   const api = {
-    check: vi.fn<UpdateApi["check"]>().mockResolvedValue({ supported: true, installation: "nsis", update: { version: "1.2.3", notes: "New release" } }),
-    download: vi.fn<UpdateApi["download"]>().mockResolvedValue(undefined),
+    check: vi.fn<UpdateApi["check"]>().mockResolvedValue({ supported: true, installation: "nsis", update: { version: "1.2.3", notes: "New release" }, downloaded: false }),
+    download: vi.fn<UpdateApi["download"]>().mockImplementation(download ?? (() => Promise.resolve())),
     install: vi.fn<UpdateApi["install"]>().mockResolvedValue(undefined),
   };
   const controller = new UpdateController(api);
@@ -22,38 +22,58 @@ function fixture() {
 }
 
 describe("update interface", () => {
-  it("checks on startup, dismisses the notice, and keeps the manual update available", async () => {
+  it("downloads on startup, waits for the user to install, and keeps a dismissed update in settings", async () => {
     vi.spyOn(ipc, "isTauri").mockReturnValue(true);
-    fixture();
+    const { api } = fixture();
     const user = userEvent.setup();
     const notice = await screen.findByRole("complementary", { name: "Application update" });
-    expect(within(notice).getByText("OKF Reviewer 1.2.3 is available.")).toBeVisible();
+    expect(within(notice).getByText("OKF Reviewer 1.2.3 is ready to install.")).toBeVisible();
+    expect(api.download).toHaveBeenCalledTimes(1);
+    expect(api.install).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await user.click(within(notice).getByRole("button", { name: "Dismiss update notification" }));
     expect(screen.queryByRole("complementary", { name: "Application update" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Update and restart" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Install and restart" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Install and restart" }));
+    expect(await screen.findByRole("dialog", { name: "Updating OKF Reviewer" })).toBeVisible();
+    expect(api.install).toHaveBeenCalledExactlyOnceWith("1.2.3");
+    expect(api.download).toHaveBeenCalledTimes(1);
   });
 
-  it("shows download progress and refuses installation if preferences cannot be saved", async () => {
+  it("shows background progress without a modal and saves preferences only when installation is requested", async () => {
     vi.spyOn(ipc, "isTauri").mockReturnValue(true);
-    vi.spyOn(ipc, "saveSettings").mockRejectedValue(new Error("Could not save preferences"));
-    const { api } = fixture();
+    const save = vi.spyOn(ipc, "saveSettings").mockRejectedValue(new Error("Could not save preferences"));
     let finish!: () => void;
-    api.download.mockImplementation(async (_version, progress) => {
+    const { api } = fixture(async (_version, progress) => {
       progress({ downloaded: 25, total: 100 });
       await new Promise<void>((resolve) => { finish = resolve; });
     });
     const user = userEvent.setup();
-    const notice = await screen.findByRole("complementary", { name: "Application update" });
-    await user.click(within(notice).getByRole("button", { name: "Update and restart" }));
-    const dialog = await screen.findByRole("dialog", { name: "Downloading update" });
-    expect(within(dialog).getByRole("progressbar", { name: "Update download" })).toHaveAttribute("value", "25");
-    await user.keyboard("{Escape}");
-    expect(dialog).toBeVisible();
+    expect(await screen.findByRole("progressbar", { name: "Update download" })).toHaveAttribute("value", "25");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View releases on GitHub" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Install and restart" })).not.toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
     await act(async () => { finish(); await Promise.resolve(); });
+    const notice = screen.getByRole("complementary", { name: "Application update" });
+    expect(within(notice).getByRole("button", { name: "Install and restart" })).toBeEnabled();
+    expect(api.install).not.toHaveBeenCalled();
+    await user.click(within(notice).getByRole("button", { name: "Install and restart" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not save preferences");
     expect(api.install).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getAllByRole("button", { name: "Retry update" })[0]).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "Retry download" })[0]).toBeEnabled();
+  });
+
+  it("retries a failed background download without installing it", async () => {
+    vi.spyOn(ipc, "isTauri").mockReturnValue(true);
+    const { api } = fixture(() => Promise.reject(new Error("Connection lost")));
+    const user = userEvent.setup();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Connection lost");
+    api.download.mockResolvedValue(undefined);
+    await user.click(within(screen.getByRole("complementary", { name: "Application update" })).getByRole("button", { name: "Retry download" }));
+    expect(screen.getAllByRole("button", { name: "Install and restart" })[0]).toBeEnabled();
+    expect(api.install).not.toHaveBeenCalled();
   });
 
   it("explains why updates cannot run in a browser preview", () => {

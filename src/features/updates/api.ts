@@ -9,6 +9,7 @@ export interface AppUpdateCheck {
   supported: boolean;
   installation: "msi" | "nsis" | "deb" | "appimage" | null;
   update: AppUpdateInfo | null;
+  downloaded: boolean;
 }
 
 export interface AppUpdateProgress {
@@ -24,7 +25,7 @@ export interface UpdateApi {
 
 export const nativeUpdateApi: UpdateApi = {
   async check() {
-    if (!isTauri()) return { supported: false, installation: null, update: null };
+    if (!isTauri()) return { supported: false, installation: null, update: null, downloaded: false };
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<AppUpdateCheck>("check_app_update");
   },
