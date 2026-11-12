@@ -164,6 +164,16 @@ read-only GitHub permissions, and a separate publishing job uploads their
 packages and the installer-specific update feed to a draft in this repository
 before publishing. Both artifact signatures and their signed release versions
 must verify against the app public key. Automatic checks run at startup and
-every six hours; installation is explicit and preserves the established data
-locations. Windows installer upgrades and native download verification are
-covered by automated tests.
+every six hours; new releases download in the background without blocking the
+reader or quiz generation. Only an explicit **Install and restart** action
+saves preferences, checks that quiz generation is idle, and starts installation.
+Download retries prepare the package and still require that installation action.
+The native backend caches the verified package and release metadata in the
+application cache, outside any bundle. On launch it can restore a downloaded
+update offline using the installed app's public key, target selection, and
+version policy; it rechecks the package signature and signed release version.
+Partial, damaged, and obsolete caches are discarded. Periodic checks retain
+the download for an unchanged signed package, and a failed check leaves it
+available for installation. Updates preserve the established data locations.
+Windows installer upgrades, native cache restoration, tamper rejection, and
+the separation between downloading and installing are covered by automated tests.

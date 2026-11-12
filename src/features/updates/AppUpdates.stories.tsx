@@ -5,19 +5,19 @@ import { WithStore } from "@/mock/withStore.tsx";
 import { AppUpdates, AppUpdatesSettings } from "./AppUpdates.tsx";
 import { UpdateController } from "./controller.ts";
 
-function UpdateExample({ mode }: { mode: "available" | "downloading" | "offline" }) {
+function UpdateExample({ mode }: { mode: "ready" | "downloading" | "installing" | "offline" }) {
   const [controller] = useState(() => new UpdateController({
     check: () => mode === "offline" ? Promise.reject(new Error("Could not check for updates: connection unavailable."))
-      : Promise.resolve({ supported: true, installation: "nsis", update: { version: "1.2.3", notes: "Improved bundle navigation and review controls." } }),
+      : Promise.resolve({ supported: true, installation: "nsis", update: { version: "1.2.3", notes: "Improved bundle navigation and review controls." }, downloaded: mode !== "downloading" }),
     download: (_version, progress) => {
       progress({ downloaded: 64, total: 100 });
       return new Promise<void>(() => { /* Keep the download visible in this story. */ });
     },
-    install: () => Promise.resolve(),
+    install: () => new Promise<void>(() => { /* Keep the installation visible in this story. */ }),
   }));
   useEffect(() => {
     void controller.check().then(() => {
-      if (mode === "downloading") void controller.install(() => Promise.resolve());
+      if (mode === "installing") void controller.install(() => Promise.resolve());
     });
   }, [controller, mode]);
   return (
@@ -35,23 +35,35 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Available: Story = {
-  args: { mode: "available" },
+  name: "Ready to install",
+  args: { mode: "ready" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.findByRole("complementary", { name: "Application update" })).resolves.toBeVisible();
+    await expect(canvas.getAllByRole("button", { name: "Install and restart" })[0]).toBeEnabled();
   },
 };
 
 export const Downloading: Story = {
   args: { mode: "downloading" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const progress = await canvas.findByRole("progressbar", { name: "Update download" });
+    await expect(progress).toHaveAttribute("value", "64");
+    await expect(within(document.body).queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "View releases on GitHub" })).toBeVisible();
+  },
+};
+
+export const Installing: Story = {
+  args: { mode: "installing" },
   play: async () => {
     const body = within(document.body);
-    const dialog = await body.findByRole("dialog", { name: "Downloading update" });
+    const dialog = await body.findByRole("dialog", { name: "Updating OKF Reviewer" });
     await waitFor(() => expect(dialog).toBeVisible());
     const bounds = dialog.getBoundingClientRect();
     await expect(bounds.top).toBeGreaterThanOrEqual(0);
     await expect(bounds.bottom).toBeLessThanOrEqual(window.innerHeight);
-    await expect(body.getByRole("progressbar", { name: "Update download" })).toHaveAttribute("value", "64");
   },
 };
 

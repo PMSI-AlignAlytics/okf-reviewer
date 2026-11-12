@@ -1,5 +1,9 @@
 # Update Log
 
+## 2026-11-06
+
+* **Release**: 0.13.0. New signed releases download automatically in the background while reading and quiz generation continue. The update notice and General settings offer **Install and restart** only after verification; downloading or retrying never installs the update. The native backend saves the package in the application cache, restores it across launches even offline, and rechecks its signature, signed version, and compatibility before use. Periodic checks retain an unchanged verified download, and failed checks keep it installable. Installation still saves preferences and waits for quiz generation. Added controller, interface, cache restoration, and tamper-rejection coverage.
+
 ## 2026-11-05
 
 * **Release**: 0.12.5. Moved Reading preferences, Quick quiz, and Give feedback into the fixed document action strip alongside the review button. Speed read also stays in the strip when available. The controls wrap in narrower reader panes and remain accessible while the document scrolls.
