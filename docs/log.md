@@ -2,7 +2,7 @@
 
 ## 2026-11-06
 
-* **Release**: 0.13.0. New signed releases download automatically in the background while reading and quiz generation continue. The update notice and General settings offer **Install and restart** only after verification; downloading or retrying never installs the update. The native backend saves the package in the application cache, restores it across launches even offline, and rechecks its signature, signed version, and compatibility before use. Periodic checks retain an unchanged verified download, and failed checks keep it installable. Installation still saves preferences and waits for quiz generation. Added controller, interface, cache restoration, and tamper-rejection coverage.
+* **Release**: 0.13.0. New signed releases download automatically in the background while reading and quiz generation continue. The update notice and General settings offer **Install and restart** only after verification; downloading or retrying never installs the update. The native backend saves the package in the application cache, restores it across launches even offline, and rechecks its signature, signed version, and compatibility before use. Periodic checks retain an unchanged verified download, and failed checks keep it installable. Installation still saves preferences and waits for quiz generation. Added controller, interface, cache restoration, and tamper-rejection coverage. Updated rustix from 1.1.4 to 1.1.6 for RUSTSEC-2026-0486 (unsound extended-attribute reads), changing only that lock entry.
 
 ## 2026-11-05
 
